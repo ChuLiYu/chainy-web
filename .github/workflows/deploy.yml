@@ -3,53 +3,53 @@ name: Frontend Deploy
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - 'chainy-web/**'
-      - '!chainy/**'
+      - "chainy-web/**"
+      - "!chainy/**"
 
 jobs:
   deploy-frontend:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: "20"
-        cache: "npm"
-        
-    - name: Install dependencies
-      run: npm ci
-      
-    - name: Build frontend
-      run: |
-        echo "VITE_CHAINY_API=${{ secrets.CHAINY_API_ENDPOINT }}" > .env.production
-        echo "VITE_GOOGLE_REDIRECT_URI=https://chainy.luichu.dev" >> .env.production
-        echo "VITE_GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}" >> .env.production
-        npm run build
-        
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ap-northeast-1
-        
-    - name: Deploy to S3
-      run: |
-        aws s3 sync dist/ s3://${{ secrets.CHAINY_FRONTEND_BUCKET }} --delete
-        
-    - name: Invalidate CloudFront Cache
-      run: |
-        aws cloudfront create-invalidation \
-          --distribution-id ${{ secrets.CHAINY_CLOUDFRONT_DISTRIBUTION_ID }} \
-          --paths "/*"
-          
-    - name: Health Check
-      run: |
-        curl -f https://chainy.luichu.dev || exit 1
-        echo "✅ Frontend deployment successful!"
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: |
+          echo "VITE_CHAINY_API=${{ secrets.CHAINY_API_ENDPOINT }}" > .env.production
+          echo "VITE_GOOGLE_REDIRECT_URI=https://chainy.luichu.dev" >> .env.production
+          echo "VITE_GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}" >> .env.production
+          npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-1
+
+      - name: Deploy to S3
+        run: |
+          aws s3 sync dist/ s3://${{ secrets.CHAINY_FRONTEND_BUCKET }} --delete
+
+      - name: Invalidate CloudFront Cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CHAINY_CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
+
+      - name: Health Check
+        run: |
+          curl -f https://chainy.luichu.dev || exit 1
+          echo "✅ Frontend deployment successful!"
