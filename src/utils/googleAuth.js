@@ -29,21 +29,6 @@ function getOptimalUxMode() {
     return (isMobile || isTablet) ? 'redirect' : 'popup';
 }
 
-/**
- * Get optimal button configuration based on device
- */
-function getButtonConfig() {
-    const { isMobile } = getDeviceType();
-
-    return {
-        theme: 'outline',
-        size: 'large',
-        text: 'signin_with',
-        shape: 'rectangular',
-        width: 300,
-        logo_alignment: 'left'
-    };
-}
 
 /**
  * Initialize Google OAuth 2.0 with responsive configuration
@@ -219,38 +204,6 @@ export function triggerGoogleLogin() {
 /**
  * Exchange OAuth code for ID token
  */
-async function exchangeCodeForToken(code) {
-    try {
-        console.log('Exchanging code for token...');
-
-        // 直接使用後端API來處理OAuth code
-        const response = await fetch('/api/auth/google/callback', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ code })
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to exchange code for token');
-        }
-
-        const result = await response.json();
-
-        if (result.idToken && window.handleGoogleLogin) {
-            window.handleGoogleLogin({ credential: result.idToken });
-        } else {
-            throw new Error('No ID token received');
-        }
-    } catch (error) {
-        console.error('Error exchanging code for token:', error);
-        // 備用方案：直接使用code作為credential
-        if (window.handleGoogleLogin) {
-            window.handleGoogleLogin({ credential: code });
-        }
-    }
-}
 
 /**
  * Authenticate against the backend with the Google ID token

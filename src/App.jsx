@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import './styles.css';
 import {
   saveToken,
   clearToken,
   clearUserProfile,
-  getToken,
   isAuthenticated as checkAuth,
   getCurrentUser,
   saveUserProfile,
@@ -722,12 +721,7 @@ function App() {
 
 
 
-  const handleGoogleResponse = (response) => {
-    console.log('Google login response:', response);
-    handleGoogleLogin(response);
-  };
-
-  const handleGoogleLogin = async (googleResponse) => {
+  const handleGoogleLogin = useCallback(async (googleResponse) => {
     setError('');
 
     try {
@@ -776,8 +770,12 @@ function App() {
     } catch (error) {
       setError(error.message || t.googleLoginFailed);
     }
-  };
+  }, [GOOGLE_REDIRECT_URI, t.googleLoginFailed]);
 
+  const handleGoogleResponse = useCallback((response) => {
+    console.log('Google login response:', response);
+    handleGoogleLogin(response);
+  }, [handleGoogleLogin]);
 
   const fetchLinksList = async () => {
     if (!isAuthenticated) return;
