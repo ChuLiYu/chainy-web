@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google OAuth 測試</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        .error {
+            color: #d32f2f;
+            background: #ffebee;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .success {
+            color: #2e7d32;
+            background: #e8f5e8;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        button {
+            background: #1976d2;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+
+        button:hover {
+            background: #1565c0;
+        }
+
+        .url-display {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            word-break: break-all;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Google OAuth 測試頁面</h1>
+
+        <div class="test-section">
+            <h3>1. 環境變數檢查</h3>
+            <div id="env-check"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. OAuth URL 構造測試</h3>
+            <div id="url-test"></div>
+            <button onclick="testOAuthUrl()">測試 OAuth URL</button>
+        </div>
+
+        <div class="test-section">
+            <h3>3. Google Client ID 驗證</h3>
+            <div id="client-id-test"></div>
+            <button onclick="testClientId()">驗證 Client ID</button>
+        </div>
+
+        <div class="test-section">
+            <h3>4. 實際登錄測試</h3>
+            <div id="login-test"></div>
+            <button onclick="testLogin()">測試 Google 登錄</button>
+        </div>
+    </div>
+
+    <script>
+        const GOOGLE_CLIENT_ID = '1079648073253-kueo7mpri415h10dsc0fldeoecp878l6.apps.googleusercontent.com';
+
+        // 1. 環境變數檢查
+        function checkEnvironment() {
+            const envDiv = document.getElementById('env-check');
+            envDiv.innerHTML = `
+                <p><strong>Google Client ID:</strong> ${GOOGLE_CLIENT_ID}</p>
+                <p><strong>Client ID 長度:</strong> ${GOOGLE_CLIENT_ID.length}</p>
+                <p><strong>Client ID 格式:</strong> ${GOOGLE_CLIENT_ID.includes('.apps.googleusercontent.com') ? '✅ 正確' : '❌ 錯誤'}</p>
+                <p><strong>當前域名:</strong> ${window.location.origin}</p>
+            `;
+        }
+
+        // 2. OAuth URL 構造測試
+        function testOAuthUrl() {
+            const urlDiv = document.getElementById('url-test');
+            const redirectUri = `${window.location.origin}/google-auth-callback.html`;
+
+            const authUrl = `https://accounts.google.com/oauth/authorize?` +
+                `client_id=${GOOGLE_CLIENT_ID}&` +
+                `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+                `response_type=code&` +
+                `scope=${encodeURIComponent('openid email profile')}&` +
+                `state=google_auth&` +
+                `access_type=offline&` +
+                `prompt=consent`;
+
+            urlDiv.innerHTML = `
+                <div class="success">OAuth URL 構造成功</div>
+                <p><strong>重定向 URI:</strong> ${redirectUri}</p>
+                <p><strong>URL 長度:</strong> ${authUrl.length}</p>
+                <div class="url-display">${authUrl}</div>
+                <button onclick="window.open('${authUrl}', '_blank')">在新標籤頁中測試</button>
+            `;
+        }
+
+        // 3. Google Client ID 驗證
+        async function testClientId() {
+            const testDiv = document.getElementById('client-id-test');
+            testDiv.innerHTML = '<p>正在驗證 Client ID...</p>';
+
+            try {
+                // 嘗試訪問 Google 的 tokeninfo 端點
+                const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?client_id=${GOOGLE_CLIENT_ID}`);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    testDiv.innerHTML = `
+                        <div class="success">✅ Client ID 有效</div>
+                        <p><strong>應用程式名稱:</strong> ${data.aud || '未知'}</p>
+                        <p><strong>發行者:</strong> ${data.iss || '未知'}</p>
+                    `;
+                } else {
+                    testDiv.innerHTML = `
+                        <div class="error">❌ Client ID 無效 (${response.status})</div>
+                        <p>請檢查 Google Cloud Console 中的 Client ID 配置</p>
+                    `;
+                }
+            } catch (error) {
+                testDiv.innerHTML = `
+                    <div class="error">❌ 驗證失敗: ${error.message}</div>
+                `;
+            }
+        }
+
+        // 4. 實際登錄測試
+        function testLogin() {
+            const loginDiv = document.getElementById('login-test');
+            const redirectUri = `${window.location.origin}/google-auth-callback.html`;
+
+            const authUrl = `https://accounts.google.com/oauth/authorize?` +
+                `client_id=${GOOGLE_CLIENT_ID}&` +
+                `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+                `response_type=code&` +
+                `scope=${encodeURIComponent('openid email profile')}&` +
+                `state=google_auth&` +
+                `access_type=offline&` +
+                `prompt=consent`;
+
+            loginDiv.innerHTML = `
+                <div class="success">準備重定向到 Google OAuth</div>
+                <p>即將重定向到: <code>${authUrl.substring(0, 100)}...</code></p>
+                <button onclick="window.location.href='${authUrl}'">開始 Google 登錄</button>
+            `;
+        }
+
+        // 頁面載入時執行檢查
+        window.onload = function () {
+            checkEnvironment();
+        };
+    </script>
+</body>
+
+</html>

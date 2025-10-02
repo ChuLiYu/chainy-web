@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google OAuth 設定驗證</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .error {
+            color: red;
+            background: #ffe6e6;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .success {
+            color: green;
+            background: #e6ffe6;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .warning {
+            color: orange;
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .info {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        button {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+
+        button:hover {
+            background: #3367d6;
+        }
+
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+
+        .step {
+            background: #f8f9fa;
+            padding: 15px;
+            border-left: 4px solid #4285f4;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔧 Google OAuth 設定驗證工具</h1>
+
+        <div class="warning">
+            <strong>⚠️ 重要提醒：</strong> 如果這個頁面也出現 origin 錯誤，說明 Google Cloud Console 中的設定有問題。
+        </div>
+
+        <h2>📊 當前環境資訊</h2>
+        <div id="env-info"></div>
+
+        <h2>🔍 Google OAuth 設定檢查</h2>
+        <div id="oauth-check"></div>
+
+        <h2>📋 修復步驟</h2>
+        <div class="step">
+            <h3>步驟 1: 檢查 Google Cloud Console</h3>
+            <p>前往：<a href="https://console.cloud.google.com/apis/credentials?project=chainy-473820"
+                    target="_blank">Google Cloud Console</a></p>
+            <p>找到 Client ID：<code>1079648073253-kueo7mpri415h10dsc0fldeoecp878l6.apps.googleusercontent.com</code></p>
+        </div>
+
+        <div class="step">
+            <h3>步驟 2: 檢查授權的 JavaScript 來源</h3>
+            <p>確保包含以下來源：</p>
+            <pre>http://localhost:3000
+http://127.0.0.1:3000</pre>
+        </div>
+
+        <div class="step">
+            <h3>步驟 3: 檢查授權的重定向 URI</h3>
+            <p>確保包含以下 URI：</p>
+            <pre>http://localhost:3000
+http://localhost:3000/callback
+http://localhost:3000/google-auth-callback.html
+http://127.0.0.1:3000</pre>
+        </div>
+
+        <div class="step">
+            <h3>步驟 4: 檢查 OAuth 同意畫面</h3>
+            <p>前往：<a href="https://console.cloud.google.com/apis/credentials/consent?project=chainy-473820"
+                    target="_blank">OAuth 同意畫面</a></p>
+            <p>確保狀態為「測試中」或「已發布」</p>
+            <p>確保已添加測試使用者（您的 Google 帳戶）</p>
+        </div>
+
+        <div class="step">
+            <h3>步驟 5: 等待設定生效</h3>
+            <p>設定更改後需要 5-10 分鐘才能生效</p>
+            <p>建議清除瀏覽器快取或使用無痕模式</p>
+        </div>
+
+        <h2>🧪 測試功能</h2>
+        <button onclick="testGoogleAuth()">測試 Google Auth</button>
+        <button onclick="clearCache()">清除快取</button>
+        <button onclick="openGoogleConsole()">開啟 Google Console</button>
+
+        <h2>📝 測試結果</h2>
+        <div id="results"></div>
+
+        <h2>🔗 Google 登入測試</h2>
+        <div id="g_id_onload" data-client_id="1079648073253-kueo7mpri415h10dsc0fldeoecp878l6.apps.googleusercontent.com"
+            data-callback="handleCredentialResponse" data-auto_prompt="false">
+        </div>
+        <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline" data-text="sign_in_with"
+            data-shape="rectangular" data-logo_alignment="left">
+        </div>
+    </div>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+        const CLIENT_ID = '1079648073253-kueo7mpri415h10dsc0fldeoecp878l6.apps.googleusercontent.com';
+
+        function displayEnvInfo() {
+            const envInfo = document.getElementById('env-info');
+            envInfo.innerHTML = `
+                <div class="info">
+                    <p><strong>當前網址：</strong> ${window.location.href}</p>
+                    <p><strong>Origin：</strong> ${window.location.origin}</p>
+                    <p><strong>Protocol：</strong> ${window.location.protocol}</p>
+                    <p><strong>Host：</strong> ${window.location.host}</p>
+                    <p><strong>Port：</strong> ${window.location.port || 'default'}</p>
+                    <p><strong>Google Client ID：</strong> ${CLIENT_ID}</p>
+                </div>
+            `;
+        }
+
+        function checkOAuthConfig() {
+            const oauthCheck = document.getElementById('oauth-check');
+            const origin = window.location.origin;
+
+            let status = '';
+
+            if (origin === 'http://localhost:3000') {
+                status += '<div class="success">✅ Origin 正確: http://localhost:3000</div>';
+            } else {
+                status += `<div class="error">❌ Origin 不正確: ${origin}</div>`;
+            }
+
+            if (CLIENT_ID && CLIENT_ID.length > 10) {
+                status += '<div class="success">✅ Client ID 格式正確</div>';
+            } else {
+                status += '<div class="error">❌ Client ID 格式不正確</div>';
+            }
+
+            oauthCheck.innerHTML = status;
+        }
+
+        function handleCredentialResponse(response) {
+            console.log('Google 登入回應:', response);
+            document.getElementById('results').innerHTML =
+                '<div class="success">✅ Google 登入成功！<br>Credential: ' + response.credential.substring(0, 50) + '...</div>';
+        }
+
+        function testGoogleAuth() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<div>🔄 測試中...</div>';
+
+            try {
+                if (window.google && window.google.accounts) {
+                    results.innerHTML = '<div class="success">✅ Google Identity Services 已載入</div>';
+                } else {
+                    results.innerHTML = '<div class="error">❌ Google Identity Services 未載入</div>';
+                }
+            } catch (error) {
+                results.innerHTML = '<div class="error">❌ 錯誤: ' + error.message + '</div>';
+            }
+        }
+
+        function clearCache() {
+            localStorage.clear();
+            sessionStorage.clear();
+            document.getElementById('results').innerHTML = '<div class="success">✅ 快取已清除，請重新整理頁面</div>';
+        }
+
+        function openGoogleConsole() {
+            window.open('https://console.cloud.google.com/apis/credentials?project=chainy-473820', '_blank');
+        }
+
+        // 頁面載入時執行
+        window.addEventListener('load', () => {
+            displayEnvInfo();
+            checkOAuthConfig();
+        });
+
+        // 監聽錯誤
+        window.addEventListener('error', (event) => {
+            if (event.message && event.message.includes('origin')) {
+                document.getElementById('results').innerHTML =
+                    '<div class="error">❌ Origin 錯誤: ' + event.message + '</div>';
+            }
+        });
+    </script>
+</body>
+
+</html>

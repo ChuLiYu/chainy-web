@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>React 測試</title>
+</head>
+
+<body>
+    <div id="root">
+        <div style="padding: 20px; background-color: red; color: white;">
+            <h1>HTML 測試</h1>
+            <p>如果你看到這個，HTML 正在工作！</p>
+        </div>
+    </div>
+
+    <script>
+        console.log('JavaScript 正在工作！');
+        document.getElementById('root').innerHTML += '<p style="color: green;">JavaScript 測試成功！</p>';
+    </script>
+</body>
+
+</html>

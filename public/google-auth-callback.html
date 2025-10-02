@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google 登錄回調</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .container {
+            text-align: center;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            max-width: 400px;
+        }
+
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid white;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .error {
+            color: #ff6b6b;
+            background: rgba(255, 107, 107, 0.1);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="spinner"></div>
+        <h2>正在處理Google登錄...</h2>
+        <p>請稍候，即將重定向回應用程式</p>
+        <div id="error-message" class="error" style="display: none;"></div>
+    </div>
+
+    <script>
+        // 處理Google OAuth回調
+        function handleGoogleCallback() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const error = urlParams.get('error');
+            const state = urlParams.get('state');
+
+            console.log('Callback params:', { code: code ? code.substring(0, 20) + '...' : null, error, state });
+
+            if (error) {
+                console.error('Google OAuth error:', error);
+                showError(`登錄失敗: ${error}`);
+
+                // 延遲後重定向，讓用戶看到錯誤信息
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 3000);
+                return;
+            }
+
+            if (code && state === 'google_auth') {
+                console.log('Google OAuth code received:', code.substring(0, 20) + '...');
+
+                // 將code存儲到localStorage
+                localStorage.setItem('google_auth_code', code);
+                localStorage.setItem('google_auth_state', state);
+                localStorage.setItem('google_auth_timestamp', Date.now().toString());
+
+                // 立即重定向回主頁面
+                window.location.href = '/';
+
+            } else {
+                console.error('Invalid OAuth callback');
+                showError('無效的回調參數');
+
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 3000);
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        // 頁面載入時執行
+        window.addEventListener('load', handleGoogleCallback);
+    </script>
+</body>
+
+</html>
