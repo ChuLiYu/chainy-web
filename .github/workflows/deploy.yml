@@ -28,6 +28,8 @@ jobs:
     - name: Build frontend
       run: |
         echo "VITE_CHAINY_API=${{ secrets.CHAINY_API_ENDPOINT }}" > .env.production
+        echo "VITE_GOOGLE_REDIRECT_URI=https://chainy.luichu.dev" >> .env.production
+        echo "VITE_GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}" >> .env.production
         npm run build
         
     - name: Configure AWS credentials
