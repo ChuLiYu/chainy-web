@@ -17,7 +17,7 @@ import {
 
 const API_ENDPOINT = import.meta.env.VITE_CHAINY_API ?? 'https://9qwxcajqf9.execute-api.ap-northeast-1.amazonaws.com';
 const GOOGLE_REDIRECT_URI = import.meta.env.VITE_GOOGLE_REDIRECT_URI;
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '1079648073253-kueo7mpri415h10dsc0fldeoecp878l6.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? 'YOUR_GOOGLE_CLIENT_ID_HERE';
 const PKCE_VERIFIER_PREFIX = 'google_pkce_verifier';
 
 // Language translations
@@ -275,7 +275,7 @@ function App() {
           try {
             // 重新初始化
             window.google.accounts.id.initialize({
-              client_id: '1079648073253-kueo7mpri415h10dsc0fldeoecp878l6.apps.googleusercontent.com',
+              client_id: GOOGLE_CLIENT_ID,
               callback: handleGoogleResponse,
               auto_select: false,
               cancel_on_tap_outside: true
