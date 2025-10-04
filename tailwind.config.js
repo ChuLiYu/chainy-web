@@ -12,7 +12,7 @@ export default {
                 'pulse': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                 'float': 'float 3s ease-in-out infinite',
                 'glow': 'glow 2s ease-in-out infinite',
-                'crypto-pulse': 'cryptoPulse 2s infinite',
+                'chainy-pulse': 'chainyPulse 2s infinite',
                 'shimmer': 'shimmer 2s infinite',
                 'gradient-text': 'gradient 3s linear infinite',
             },
@@ -33,7 +33,7 @@ export default {
                     '0%, 100%': { boxShadow: '0 0 20px rgba(59, 130, 246, 0.3)' },
                     '50%': { boxShadow: '0 0 30px rgba(59, 130, 246, 0.6)' },
                 },
-                cryptoPulse: {
+                chainyPulse: {
                     '0%': { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(59, 130, 246, 0.7)' },
                     '70%': { transform: 'scale(1.05)', boxShadow: '0 0 0 10px rgba(59, 130, 246, 0)' },
                     '100%': { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(59, 130, 246, 0)' },
