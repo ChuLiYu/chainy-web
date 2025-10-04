@@ -15,7 +15,7 @@ import {
   authenticateWithGoogle
 } from './utils/googleAuth.js';
 
-const API_ENDPOINT = import.meta.env.VITE_CHAINY_API ?? 'https://9qwxcajqf9.execute-api.ap-northeast-1.amazonaws.com';
+const API_ENDPOINT = import.meta.env.VITE_CHAINY_API ?? 'https://your-api-gateway-url.amazonaws.com';
 const GOOGLE_REDIRECT_URI = import.meta.env.VITE_GOOGLE_REDIRECT_URI;
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? 'YOUR_GOOGLE_CLIENT_ID_HERE';
 const PKCE_VERIFIER_PREFIX = 'google_pkce_verifier';
