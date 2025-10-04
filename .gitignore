@@ -84,6 +84,9 @@ current-config*.json
 current-distribution-config*.json
 distribution-config*.json
 final-config*.json
+final-distribution-config*.json
 fixed-config*.json
+fixed-distribution-config*.json
 updated-config*.json
+updated-distribution-config*.json
 monitor-cloudfront-deployment*.sh
