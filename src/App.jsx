@@ -35,8 +35,6 @@ const translations = {
     buttonCopy: '複製',
     buttonCopied: '已複製',
     buttonTest: '測試',
-    buttonPin: '置頂',
-    buttonUnpin: '取消置頂',
     buttonShowLinks: '我的短網址',
     buttonHideLinks: '隱藏列表',
     linksListTitle: '我的短網址',
@@ -64,7 +62,6 @@ const translations = {
     loadingLinks: '載入連結中...',
     retryButton: '重試',
     retryPrompt: '載入失敗，請重試',
-    pinnedTag: '📌 置頂',
     clicksLabel: '點擊',
     createdLabel: '創建時間',
     deleteButton: '刪除',
@@ -84,8 +81,6 @@ const translations = {
     buttonCopy: 'Copy',
     buttonCopied: 'Copied',
     buttonTest: 'Test',
-    buttonPin: 'Pin',
-    buttonUnpin: 'Unpin',
     buttonShowLinks: 'My Links',
     buttonHideLinks: 'Hide List',
     linksListTitle: 'My Short Links',
@@ -113,7 +108,6 @@ const translations = {
     loadingLinks: 'Loading links...',
     retryButton: 'Retry',
     retryPrompt: 'Loading failed, please retry',
-    pinnedTag: '📌 Pinned',
     clicksLabel: 'Clicks',
     createdLabel: 'Created',
     deleteButton: 'Delete',
@@ -136,7 +130,7 @@ function App() {
   const [linksList, setLinksList] = useState([]);
   const [isLoadingLinks, setIsLoadingLinks] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
+  const [_retryCount, setRetryCount] = useState(0);
   const [googleAuthReady, setGoogleAuthReady] = useState(false);
   const [copiedLinks, setCopiedLinks] = useState(new Set());
   const [customCode, setCustomCode] = useState('');
@@ -175,7 +169,7 @@ function App() {
       }
     };
     checkAuthStatus();
-  }, []);
+  }, [handleGoogleLogin]);
 
   // Initialize Google Auth (只執行一次)
   useEffect(() => {
@@ -195,7 +189,7 @@ function App() {
     };
 
     checkGoogleAuth();
-  }, []);
+  }, [handleGoogleLogin, handleGoogleResponse]);
 
   // 檢查是否有來自獨立登入頁面的登入資訊
   useEffect(() => {
@@ -238,7 +232,7 @@ function App() {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, []);
+  }, [handleGoogleLogin]);
 
   // Handle OAuth code returned on redirect
   useEffect(() => {
@@ -261,7 +255,7 @@ function App() {
       const cleanUrl = window.location.origin + window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
     }
-  }, []);
+  }, [handleGoogleLogin]);
 
   // 當 googleAuthReady 變為 true 時，確保 Google 標籤被正確處理
   useEffect(() => {
@@ -308,7 +302,7 @@ function App() {
         }
       }
     }
-  }, [googleAuthReady, isAuthenticated]);
+  }, [googleAuthReady, isAuthenticated, handleGoogleResponse]);
 
   // 檢查是否有Google OAuth code需要處理
   useEffect(() => {
@@ -357,7 +351,7 @@ function App() {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, []);
+  }, [handleGoogleLogin]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -440,12 +434,6 @@ function App() {
           const updated = [newLink, ...filtered];
 
           return updated.sort((a, b) => {
-            const aPinned = Boolean(a.pinned);
-            const bPinned = Boolean(b.pinned);
-
-            if (aPinned && !bPinned) return -1;
-            if (!aPinned && bPinned) return 1;
-
             return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
           });
         });
@@ -635,35 +623,19 @@ function App() {
               backgroundColor: 'rgba(2, 6, 23, 0.8)',
               borderRadius: '12px',
               padding: '20px',
-              border: link.pinned ? '2px solid rgba(168, 85, 247, 0.5)' : '1px solid rgba(51, 65, 85, 0.5)',
+              border: '1px solid rgba(51, 65, 85, 0.5)',
               transition: 'all 0.3s ease',
               position: 'relative'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = link.pinned ? 'rgba(168, 85, 247, 0.8)' : 'rgba(96, 165, 250, 0.5)';
+              e.currentTarget.style.borderColor = 'rgba(96, 165, 250, 0.5)';
               e.currentTarget.style.transform = 'translateY(-2px)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = link.pinned ? 'rgba(168, 85, 247, 0.5)' : 'rgba(51, 65, 85, 0.5)';
+              e.currentTarget.style.borderColor = 'rgba(51, 65, 85, 0.5)';
               e.currentTarget.style.transform = 'translateY(0)';
             }}
           >
-            {/* Pin indicator */}
-            {link.pinned && (
-              <div style={{
-                position: 'absolute',
-                top: '8px',
-                right: '8px',
-                backgroundColor: 'rgba(168, 85, 247, 0.2)',
-                borderRadius: '4px',
-                padding: '4px 8px',
-                fontSize: '0.75rem',
-                color: '#a855f7',
-                fontWeight: 'bold'
-              }}>
-                {t.pinnedTag}
-              </div>
-            )}
 
             <div style={{
               display: 'flex',
@@ -779,31 +751,6 @@ function App() {
                 {`${t.clicksLabel}: ${link.clicks || 0} | ${t.createdLabel}: ${new Date(link.created_at).toLocaleDateString()}`}
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
-                {/* pin button */}
-                {/* <button
-                  onClick={() => togglePin(link.code, link.pinned)}
-                  style={{
-                    padding: '6px 12px',
-                    backgroundColor: link.pinned ? 'rgba(239, 68, 68, 0.15)' : 'rgba(168, 85, 247, 0.15)',
-                    border: `1px solid ${link.pinned ? 'rgba(239, 68, 68, 0.3)' : 'rgba(168, 85, 247, 0.3)'}`,
-                    borderRadius: '6px',
-                    color: link.pinned ? '#ef4444' : '#a855f7',
-                    fontSize: '0.75rem',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.backgroundColor = link.pinned ? 'rgba(239, 68, 68, 0.25)' : 'rgba(168, 85, 247, 0.25)';
-                    e.target.style.transform = 'scale(1.05)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.backgroundColor = link.pinned ? 'rgba(239, 68, 68, 0.15)' : 'rgba(168, 85, 247, 0.15)';
-                    e.target.style.transform = 'scale(1)';
-                  }}
-                >
-                  {link.pinned ? t.buttonUnpin : t.buttonPin}
-                </button> */}
                 <button
                   onClick={() => handleCopyLink(link)}
                   style={{
@@ -914,7 +861,7 @@ function App() {
     } finally {
       setIsLoggingIn(false);
     }
-  }, [GOOGLE_REDIRECT_URI, t.googleLoginFailed]);
+  }, [t.googleLoginFailed, t.jwtMissing]);
 
   const handleGoogleResponse = useCallback((response) => {
     console.log('Google login response:', response);
@@ -958,16 +905,9 @@ function App() {
         short_url: link.short_url || link.shortUrl || undefined
       }));
 
-      // Additional client-side sorting to ensure pinned items are first
+      // Additional client-side sorting
       const sortedLinks = normalizedLinks.sort((a, b) => {
-        const aPinned = Boolean(a.pinned);
-        const bPinned = Boolean(b.pinned);
-
-        // Pinned items first
-        if (aPinned && !bPinned) return -1;
-        if (!aPinned && bPinned) return 1;
-
-        // Then by creation date (newest first)
+        // Sort by creation date (newest first)
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
 
@@ -992,50 +932,6 @@ function App() {
     }
   };
 
-  const togglePin = async (code, currentPinned) => {
-    if (!isAuthenticated) return;
-
-    try {
-      const options = createAuthenticatedRequest({
-        method: 'PUT',
-        body: JSON.stringify({ pinned: !currentPinned }),
-      });
-      const response = await fetch(`${API_ENDPOINT}/links/${code}`, options);
-
-      if (handleAuthError(response)) {
-        setIsAuthenticated(false);
-        setUser(null);
-        throw new Error('Authentication expired. Please login again.');
-      }
-
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.message || 'Failed to update pin status');
-      }
-
-      // Update the local state and re-sort
-      setLinksList(prev => {
-        const updatedLinks = prev.map(link =>
-          link.code === code ? { ...link, pinned: !currentPinned } : link
-        );
-
-        // Re-sort after updating pin status
-        return updatedLinks.sort((a, b) => {
-          const aPinned = Boolean(a.pinned);
-          const bPinned = Boolean(b.pinned);
-
-          // Pinned items first
-          if (aPinned && !bPinned) return -1;
-          if (!aPinned && bPinned) return 1;
-
-          // Then by creation date (newest first)
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        });
-      });
-    } catch (err) {
-      setError(err.message);
-    }
-  };
 
   const handleCopyLink = async (link) => {
     const shortUrl = resolveShortUrl(link);
