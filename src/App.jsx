@@ -866,7 +866,7 @@ function App() {
   const handleGoogleResponse = useCallback((response) => {
     console.log('Google login response:', response);
     handleGoogleLogin(response);
-  }, [handleGoogleLogin]);
+  }, []);
 
   const fetchLinksList = async (retryAttempt = 0) => {
     if (!isAuthenticated) return;
