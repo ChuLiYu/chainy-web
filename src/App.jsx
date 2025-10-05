@@ -173,22 +173,31 @@ function App() {
 
   // Initialize Google Auth (只執行一次)
   useEffect(() => {
+    console.log('Initializing Google Auth...');
+    
     // 設置全局Google登錄處理器
     window.handleGoogleLogin = handleGoogleLogin;
     window.handleGoogleResponse = handleGoogleResponse;
 
-    // 簡單檢查Google腳本是否載入
-    const checkGoogleAuth = () => {
+    // 檢查Google腳本是否載入，增加更長的等待時間
+    const checkGoogleAuth = (attempts = 0) => {
+      console.log(`Checking Google Auth, attempt ${attempts + 1}`);
+      
       if (window.google && window.google.accounts) {
         console.log('Google Auth ready - using HTML tags approach');
         setGoogleAuthReady(true);
-      } else {
+      } else if (attempts < 50) { // 最多等待 5 秒
         console.log('Waiting for Google Auth...');
-        setTimeout(checkGoogleAuth, 100);
+        setTimeout(() => checkGoogleAuth(attempts + 1), 100);
+      } else {
+        console.warn('Google Auth script failed to load after 5 seconds');
+        // 即使腳本沒載入，也設置為 ready 以顯示登錄按鈕
+        setGoogleAuthReady(true);
       }
     };
 
-    checkGoogleAuth();
+    // 延遲一點開始檢查，確保腳本有時間載入
+    setTimeout(() => checkGoogleAuth(), 500);
   }, []);
 
   // 檢查是否有來自獨立登入頁面的登入資訊
