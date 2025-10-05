@@ -39,15 +39,19 @@
 
 body {
   margin: 0;
+  padding: 0;
   min-width: 320px;
+  height: 100vh;
   min-height: 100vh;
   background: radial-gradient(ellipse at top, #1e1b4b 0%, #0f172a 50%, #000000 100%);
+  background-attachment: fixed;
   overflow-x: hidden;
 }
 
 /* Ensure fixed positioning works correctly */
 #root {
   position: relative;
+  height: 100vh;
   min-height: 100vh;
 }
 
