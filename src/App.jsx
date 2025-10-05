@@ -174,7 +174,7 @@ function App() {
   // Initialize Google Auth (只執行一次)
   useEffect(() => {
     console.log('Initializing Google Auth...');
-    
+
     // 設置全局Google登錄處理器
     window.handleGoogleLogin = handleGoogleLogin;
     window.handleGoogleResponse = handleGoogleResponse;
@@ -182,7 +182,7 @@ function App() {
     // 檢查Google腳本是否載入，增加更長的等待時間
     const checkGoogleAuth = (attempts = 0) => {
       console.log(`Checking Google Auth, attempt ${attempts + 1}`);
-      
+
       if (window.google && window.google.accounts) {
         console.log('Google Auth ready - using HTML tags approach');
         setGoogleAuthReady(true);
@@ -996,16 +996,15 @@ function App() {
   return (
     <div
       style={{
-        height: '100vh',
         minHeight: '100vh',
         background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 25%, #312e81 50%, #1e1b4b 75%, #0f172a 100%)',
         color: 'white',
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
         padding: '48px 16px',
-        position: 'relative',
-        overflow: 'hidden'
+        position: 'relative'
       }}
     >
       {/* Background gradient orbs */}
