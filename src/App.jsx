@@ -232,7 +232,7 @@ function App() {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, [handleGoogleLogin]);
+  }, []);
 
   // Handle OAuth code returned on redirect
   useEffect(() => {
@@ -255,7 +255,7 @@ function App() {
       const cleanUrl = window.location.origin + window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
     }
-  }, [handleGoogleLogin]);
+  }, []);
 
   // 當 googleAuthReady 變為 true 時，確保 Google 標籤被正確處理
   useEffect(() => {
@@ -302,7 +302,7 @@ function App() {
         }
       }
     }
-  }, [googleAuthReady, isAuthenticated, handleGoogleResponse]);
+  }, [googleAuthReady, isAuthenticated]);
 
   // 檢查是否有Google OAuth code需要處理
   useEffect(() => {
@@ -351,7 +351,7 @@ function App() {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, [handleGoogleLogin]);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
