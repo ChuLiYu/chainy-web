@@ -561,7 +561,8 @@ function App() {
       return valid;
     }
 
-    const base = (API_ENDPOINT || '').replace(/\/$/, '');
+    // Use custom domain instead of API Gateway endpoint
+    const base = 'https://chainy.luichu.dev';
     if (link.code) {
       return `${base}/${link.code}`;
     }
@@ -597,7 +598,7 @@ function App() {
             <LoadingSpinner size={24} />
             <span style={{ fontSize: '0.9rem' }}>{t.loadingLinks}</span>
           </div>
-          
+
           {/* Skeleton loading for links */}
           <div style={{ maxWidth: '600px', margin: '0 auto' }}>
             <SkeletonLink />
@@ -932,12 +933,10 @@ function App() {
         throw new Error('User profile is missing. Please login again.');
       }
 
-      const query = new URLSearchParams({ owner: currentUser.userId }).toString();
-
       const options = createAuthenticatedRequest({
         method: 'GET',
       });
-      const response = await fetch(`${API_ENDPOINT}/links?${query}`, options);
+      const response = await fetch(`${API_ENDPOINT}/links`, options);
 
       if (handleAuthError(response)) {
         setIsAuthenticated(false);
@@ -975,7 +974,7 @@ function App() {
       setRetryCount(0); // Reset retry count on success
     } catch (err) {
       console.error('Error fetching links:', err);
-      
+
       // Retry logic for network errors
       if (retryAttempt < 2 && (err.message.includes('fetch') || err.message.includes('network') || err.message.includes('Failed to fetch'))) {
         console.log(`Retrying fetchLinksList, attempt ${retryAttempt + 1}`);
@@ -984,7 +983,7 @@ function App() {
         }, 1000 * (retryAttempt + 1)); // Exponential backoff
         return;
       }
-      
+
       setError(err.message || 'Failed to retrieve links');
       setRetryCount(retryAttempt);
     } finally {
@@ -1668,7 +1667,7 @@ function App() {
                   fontSize: '0.875rem',
                   margin: '0 0 12px 0'
                 }}>{error}</p>
-                
+
                 {/* Retry button for link loading errors */}
                 {error.includes('Failed to fetch') || error.includes('Failed to retrieve') ? (
                   <button
@@ -1707,7 +1706,7 @@ function App() {
                     ) : (
                       <>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                          <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
                         </svg>
                         <span>{t.retryButton}</span>
                       </>
