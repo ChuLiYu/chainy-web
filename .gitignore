@@ -29,6 +29,19 @@ dist-ssr
 .env.development.local
 .env.test.local
 .env.production.local
+.env.*
+
+# Sensitive configuration files
+current-config*.json
+current-distribution-config*.json
+distribution-config*.json
+final-config*.json
+final-distribution-config*.json
+fixed-config*.json
+fixed-distribution-config*.json
+updated-config*.json
+updated-distribution-config*.json
+monitor-cloudfront-deployment*.sh
 
 # Coverage directory used by tools like istanbul
 coverage/
