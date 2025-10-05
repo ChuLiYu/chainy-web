@@ -169,7 +169,7 @@ function App() {
       }
     };
     checkAuthStatus();
-  }, [handleGoogleLogin]);
+  }, []);
 
   // Initialize Google Auth (只執行一次)
   useEffect(() => {
