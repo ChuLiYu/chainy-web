@@ -4,6 +4,11 @@
  * 為 Chainy API 提供簡單的 JWT 認證功能
  */
 
+import { createLogger } from './logger.js';
+
+// Initialize logger for auth utilities
+const logger = createLogger('auth');
+
 const TOKEN_STORAGE_KEY = 'chainy_jwt_token';
 const USER_STORAGE_KEY = 'chainy_user_profile';
 
@@ -25,7 +30,7 @@ export function saveUserProfile(profile) {
     try {
         localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(profile));
     } catch (error) {
-        console.error('Failed to persist user profile:', error);
+        logger.warn('Failed to persist user profile', { error: error.message });
     }
 }
 
@@ -68,7 +73,7 @@ export function isAuthenticated() {
         }
         return true;
     } catch (error) {
-        console.error('Error checking authentication:', error);
+        logger.warn('Error checking authentication', { error: error.message });
         return false;
     }
 }
@@ -104,7 +109,7 @@ export function getCurrentUser() {
         try {
             return JSON.parse(storedProfile);
         } catch (error) {
-            console.error('Failed to parse stored user profile:', error);
+            logger.warn('Failed to parse stored user profile', { error: error.message });
             localStorage.removeItem(USER_STORAGE_KEY);
         }
     }
@@ -123,7 +128,7 @@ export function getCurrentUser() {
             role: payload.role,
         };
     } catch (error) {
-        console.error('Error getting current user:', error);
+        logger.warn('Error getting current user', { error: error.message });
         return null;
     }
 }
@@ -193,7 +198,7 @@ export async function createShortLinkWithAuth(apiUrl, code, targetUrl) {
 
         return await response.json();
     } catch (error) {
-        console.error('Error creating short link:', error);
+        logger.error('Error creating short link', { error: error.message });
         throw error;
     }
 }
@@ -232,7 +237,7 @@ export async function login(authServerUrl, email, password) {
 
         throw new Error('No token received');
     } catch (error) {
-        console.error('Login error:', error);
+        logger.error('Login error', { error: error.message });
         throw error;
     }
 }

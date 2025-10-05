@@ -5,6 +5,11 @@
  * for mobile and desktop experiences.
  */
 
+import { createLogger } from './logger.js';
+
+// Initialize logger for Google Auth utilities
+const logger = createLogger('googleAuth');
+
 // Google OAuth 2.0 configuration
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
@@ -35,25 +40,25 @@ function getOptimalUxMode() {
  */
 export function initializeGoogleAuth() {
     return new Promise((resolve, reject) => {
-        console.log('Initializing Responsive Google Auth...');
-        console.log('GOOGLE_CLIENT_ID:', GOOGLE_CLIENT_ID);
+        logger.debug('Initializing Responsive Google Auth');
+        logger.debug('GOOGLE_CLIENT_ID', { clientId: GOOGLE_CLIENT_ID });
 
         // 檢查Client ID是否有效
         if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.length < 10) {
-            console.error('Invalid Google Client ID:', GOOGLE_CLIENT_ID);
+            logger.error('Invalid Google Client ID', { clientId: GOOGLE_CLIENT_ID });
             reject(new Error('Invalid Google Client ID'));
             return;
         }
 
         // 檢查是否已經初始化
         if (window.googleAuthInitialized) {
-            console.log('Google Auth already initialized, skipping...');
+            logger.debug('Google Auth already initialized, skipping');
             resolve();
             return;
         }
 
         if (window.google && window.google.accounts) {
-            console.log('Google already loaded');
+            logger.debug('Google already loaded');
             resolve();
             return;
         }
@@ -64,13 +69,12 @@ export function initializeGoogleAuth() {
         script.defer = true;
 
         script.onload = () => {
-            console.log('Google script loaded');
+            logger.debug('Google script loaded');
             if (window.google && window.google.accounts) {
                 const uxMode = getOptimalUxMode();
                 const deviceType = getDeviceType();
 
-                console.log('Device type:', deviceType);
-                console.log('Using UX mode:', uxMode);
+                logger.debug('Device type and UX mode', { deviceType, uxMode });
 
                 const config = {
                     client_id: GOOGLE_CLIENT_ID,
@@ -81,9 +85,9 @@ export function initializeGoogleAuth() {
 
                 try {
                     window.google.accounts.id.initialize(config);
-                    console.log('Google accounts initialized with responsive config');
+                    logger.debug('Google accounts initialized with responsive config');
                 } catch (error) {
-                    console.error('Failed to initialize Google accounts:', error);
+                    logger.error('Failed to initialize Google accounts', { error: error.message });
                     reject(error);
                     return;
                 }
@@ -101,21 +105,21 @@ export function initializeGoogleAuth() {
                                 width: 300,
                                 logo_alignment: 'left'
                             });
-                            console.log('Google Sign-In Button rendered');
+                            logger.debug('Google Sign-In Button rendered');
                         } catch (error) {
-                            console.error('Failed to render Google Sign-In Button:', error);
+                            logger.warn('Failed to render Google Sign-In Button', { error: error.message });
                         }
                     }
                 }, 100);
 
                 resolve();
             } else {
-                console.error('Failed to load Google OAuth library');
+                logger.error('Failed to load Google OAuth library');
                 reject(new Error('Failed to load Google OAuth library'));
             }
         };
         script.onerror = () => {
-            console.error('Failed to load Google OAuth script');
+            logger.error('Failed to load Google OAuth script');
             reject(new Error('Failed to load Google OAuth script'));
         };
         document.head.appendChild(script);
@@ -127,7 +131,7 @@ export function initializeGoogleAuth() {
  * @param {Object} response - Google OAuth response
  */
 function handleGoogleResponse(response) {
-    console.log('Google login response:', response);
+    logger.debug('Google login response', { response });
 
     // The React App component handles the sign-in logic.
     if (window.handleGoogleLogin) {
@@ -139,18 +143,18 @@ function handleGoogleResponse(response) {
  * Trigger Google sign-in using responsive UX mode
  */
 export function triggerGoogleLogin() {
-    console.log('triggerGoogleLogin called');
-    console.log('GOOGLE_CLIENT_ID:', GOOGLE_CLIENT_ID);
+    logger.debug('triggerGoogleLogin called');
+    logger.debug('GOOGLE_CLIENT_ID', { clientId: GOOGLE_CLIENT_ID });
 
     if (!GOOGLE_CLIENT_ID) {
-        console.error('Google Client ID not configured');
+        logger.error('Google Client ID not configured');
         return;
     }
 
     try {
         // Check if Google Identity Services is loaded
         if (!window.google || !window.google.accounts) {
-            console.error('Google Identity Services not loaded');
+            logger.error('Google Identity Services not loaded');
             alert('Google 登錄服務未載入。請重新整理頁面後重試。');
             return;
         }
@@ -158,8 +162,7 @@ export function triggerGoogleLogin() {
         const uxMode = getOptimalUxMode();
         const deviceType = getDeviceType();
 
-        console.log('Device type:', deviceType);
-        console.log('Using UX mode:', uxMode);
+        logger.debug('Device type and UX mode', { deviceType, uxMode });
 
         // Initialize with responsive configuration
         const config = {
@@ -174,29 +177,29 @@ export function triggerGoogleLogin() {
         if (uxMode === 'popup') {
             // Try One Tap for desktop
             window.google.accounts.id.prompt((notification) => {
-                console.log('One Tap notification:', notification);
+                logger.debug('One Tap notification', { notification });
 
                 if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-                    console.log('One Tap not displayed, clicking Sign-In Button');
+                    logger.debug('One Tap not displayed, clicking Sign-In Button');
 
                     // Fallback to clicking the rendered button
                     const buttonContainer = document.getElementById('google-signin-button');
                     if (buttonContainer && buttonContainer.querySelector('div[role="button"]')) {
                         buttonContainer.querySelector('div[role="button"]').click();
                     } else {
-                        console.error('Google Sign-In Button not found');
+                        logger.warn('Google Sign-In Button not found');
                         alert('Google 登錄按鈕未找到。請重新整理頁面。');
                     }
                 }
             });
         } else {
             // For mobile/tablet, trigger redirect directly
-            console.log('Triggering redirect for mobile/tablet');
+            logger.debug('Triggering redirect for mobile/tablet');
             window.google.accounts.id.prompt();
         }
 
     } catch (error) {
-        console.error('Error with Google Identity Services:', error);
+        logger.error('Error with Google Identity Services', { error: error.message });
         alert('Google 登錄服務錯誤。請檢查設定。');
     }
 }
@@ -213,7 +216,7 @@ export function triggerGoogleLogin() {
  */
 export async function authenticateWithGoogle(googleToken, apiEndpoint, options = {}) {
     try {
-        console.log('Authenticating with Google token/code:', googleToken.substring(0, 20) + '...');
+        logger.debug('Authenticating with Google token/code', { tokenPrefix: googleToken.substring(0, 20) + '...' });
 
         const { tokenTypeHint, redirectUri, codeVerifier } = options;
 
@@ -225,7 +228,7 @@ export async function authenticateWithGoogle(googleToken, apiEndpoint, options =
             body: JSON.stringify({
                 googleToken,
                 provider: 'google',
-                tokenType: tokenTypeHint || (googleToken.startsWith('4/') ? 'code' : 'id_token'),
+                tokenType: tokenTypeHint || 'id_token', // Google Identity Services always returns ID tokens
                 redirectUri,
                 ...(codeVerifier ? { codeVerifier } : {})
             }),
@@ -233,15 +236,15 @@ export async function authenticateWithGoogle(googleToken, apiEndpoint, options =
 
         if (!response.ok) {
             const error = await response.json();
-            console.error('Backend authentication failed:', error);
+            logger.error('Backend authentication failed', { error: error.message });
             throw new Error(error.message || 'Google authentication failed');
         }
 
         const data = await response.json();
-        console.log('Authentication successful:', data);
+        logger.debug('Authentication successful', { data });
         return data;
     } catch (error) {
-        console.error('Google auth error:', error);
+        logger.error('Google auth error', { error: error.message });
         throw error;
     }
 }

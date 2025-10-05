@@ -2,15 +2,17 @@ import { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import './styles.css';
 import {
-  saveToken,
   clearToken,
   clearUserProfile,
   isAuthenticated as checkAuth,
   getCurrentUser,
-  saveUserProfile,
   createAuthenticatedRequest,
   handleAuthError
 } from './utils/auth.js';
+import { createLogger } from './utils/logger.js';
+
+// Initialize logger for App component
+const logger = createLogger('App');
 import {
   authenticateWithGoogle
 } from './utils/googleAuth.js';
@@ -123,7 +125,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isValidUrl, setIsValidUrl] = useState(false);
-  const [language, setLanguage] = useState('zh'); // Default to Chinese
+  const [language, setLanguage] = useState('en'); // Default to English
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [_user, setUser] = useState(null);
   const [showLinksList, setShowLinksList] = useState(false);
@@ -138,6 +140,154 @@ function App() {
   const [note, setNote] = useState('');
 
   const t = translations[language]; // Get current language translations
+
+  // Define resolveShortUrl early to avoid initialization issues
+  const resolveShortUrl = (link) => {
+    if (!link) return '';
+
+    // Prioritize backend-provided short_url
+    const candidates = [link.short_url, link.shortUrl];
+    const valid = candidates.find((value) => typeof value === 'string' && value.trim().length > 0);
+    if (valid) {
+      return valid;
+    }
+
+    // Fallback: construct short URL using custom domain
+    const base = 'https://chainy.luichu.dev';
+    if (link.code) {
+      return `${base}/${link.code}`;
+    }
+
+    return base;
+  };
+
+  // Define fetchLinksList early to avoid initialization issues
+  const fetchLinksList = useCallback(async (retryAttempt = 0) => {
+    if (!isAuthenticated) return;
+
+    setIsLoadingLinks(true);
+    setError('');
+
+    try {
+      const currentUser = getCurrentUser();
+
+      if (!currentUser?.userId) {
+        throw new Error('User profile is missing. Please login again.');
+      }
+
+      const options = createAuthenticatedRequest({
+        method: 'GET',
+      });
+      const response = await fetch(`${API_ENDPOINT}/links`, options);
+
+      if (handleAuthError(response)) {
+        setIsAuthenticated(false);
+        setUser(null);
+        throw new Error('Authentication expired. Please login again.');
+      }
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || 'Failed to fetch links');
+      }
+
+      const data = await response.json();
+      const links = data.links || [];
+      const normalizedLinks = links.map(link => ({
+        ...link,
+        shortUrl: resolveShortUrl(link),
+        short_url: link.short_url || link.shortUrl || undefined
+      }));
+
+      // Additional client-side sorting
+      const sortedLinks = normalizedLinks.sort((a, b) => {
+        // Sort by creation date (newest first)
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+
+      setLinksList(sortedLinks);
+      setRetryCount(0); // Reset retry count on success
+    } catch (err) {
+      logger.error('Error fetching links:', err);
+
+      // Retry logic for network errors
+      if (retryAttempt < 2 && (err.message.includes('fetch') || err.message.includes('network') || err.message.includes('Failed to fetch'))) {
+        logger.debug(`Retrying fetchLinksList, attempt ${retryAttempt + 1}`);
+        setTimeout(() => {
+          fetchLinksList(retryAttempt + 1);
+        }, 1000 * (retryAttempt + 1)); // Exponential backoff
+        return;
+      }
+
+      setError(err.message || 'Failed to retrieve links');
+      setRetryCount(retryAttempt);
+    } finally {
+      setIsLoadingLinks(false);
+    }
+  }, [isAuthenticated]);
+
+  // Define Google login handlers early to avoid initialization issues
+  const handleGoogleLogin = useCallback(async (googleResponse) => {
+    setError('');
+    setIsLoggingIn(true);
+
+    try {
+      const tokenType = googleResponse.tokenType
+        || (typeof googleResponse.credential === 'string' && googleResponse.credential.startsWith('4/') ? 'code' : 'id_token');
+
+      const redirectUri = tokenType === 'code' ? (GOOGLE_REDIRECT_URI || window.location.origin) : undefined;
+      let codeVerifier;
+
+      if (tokenType === 'code') {
+        const stateKey = googleResponse.state && googleResponse.state.startsWith('google_auth')
+          ? googleResponse.state
+          : 'google_auth';
+        const storageKey = `${PKCE_VERIFIER_PREFIX}_${stateKey}`;
+        codeVerifier = sessionStorage.getItem(storageKey);
+        logger.debug('Retrieved PKCE verifier', { storageKey, hasVerifier: !!codeVerifier });
+
+        if (!codeVerifier) {
+          throw new Error('Missing PKCE verifier for OAuth code exchange');
+        }
+
+        sessionStorage.removeItem(storageKey);
+      }
+
+      logger.debug('Submitting Google auth', { tokenType, redirectUri, hasVerifier: !!codeVerifier });
+
+      const authResult = await authenticateWithGoogle(googleResponse.credential, API_ENDPOINT, {
+        tokenTypeHint: tokenType,
+        redirectUri,
+        codeVerifier,
+      });
+
+      if (authResult.jwt) {
+        localStorage.setItem('chainy_jwt_token', authResult.jwt);
+        localStorage.setItem('chainy_user_profile', JSON.stringify(authResult.user));
+        setIsAuthenticated(true);
+        setUser(authResult.user);
+        setShowLinksList(true);
+        await fetchLinksList();
+      } else {
+        throw new Error(t.jwtMissing);
+      }
+    } catch (error) {
+      setError(error.message || t.googleLoginFailed);
+    } finally {
+      setIsLoggingIn(false);
+    }
+  }, [fetchLinksList, t.googleLoginFailed, t.jwtMissing]);
+
+  const handleGoogleResponse = useCallback((response) => {
+    logger.debug('Google login response', { response });
+    handleGoogleLogin(response);
+  }, [handleGoogleLogin]);
+
+  // 設置全局Google登錄處理器
+  useEffect(() => {
+    window.handleGoogleLogin = handleGoogleLogin;
+    window.handleGoogleResponse = handleGoogleResponse;
+  }, [handleGoogleLogin, handleGoogleResponse]);
 
   useEffect(() => {
     const urlPattern = /^https?:\/\/.+/;
@@ -173,24 +323,24 @@ function App() {
 
   // Initialize Google Auth (只執行一次)
   useEffect(() => {
-    console.log('Initializing Google Auth...');
+    logger.debug('Initializing Google Auth...');
 
-    // 設置全局Google登錄處理器
-    window.handleGoogleLogin = handleGoogleLogin;
-    window.handleGoogleResponse = handleGoogleResponse;
+    // 設置全局Google登錄處理器 - 將在函數定義後設置
+    // window.handleGoogleLogin = handleGoogleLogin;
+    // window.handleGoogleResponse = handleGoogleResponse;
 
     // 檢查Google腳本是否載入，增加更長的等待時間
     const checkGoogleAuth = (attempts = 0) => {
-      console.log(`Checking Google Auth, attempt ${attempts + 1}`);
+      logger.debug(`Checking Google Auth, attempt ${attempts + 1}`);
 
       if (window.google && window.google.accounts) {
-        console.log('Google Auth ready - using HTML tags approach');
+        logger.debug('Google Auth ready - using HTML tags approach');
         setGoogleAuthReady(true);
       } else if (attempts < 50) { // 最多等待 5 秒
-        console.log('Waiting for Google Auth...');
+        logger.debug('Waiting for Google Auth...');
         setTimeout(() => checkGoogleAuth(attempts + 1), 100);
       } else {
-        console.warn('Google Auth script failed to load after 5 seconds');
+        logger.warn('Google Auth script failed to load after 5 seconds');
         // 即使腳本沒載入，也設置為 ready 以顯示登錄按鈕
         setGoogleAuthReady(true);
       }
@@ -198,7 +348,7 @@ function App() {
 
     // 延遲一點開始檢查，確保腳本有時間載入
     setTimeout(() => checkGoogleAuth(), 500);
-  }, []);
+  }, [handleGoogleLogin, handleGoogleResponse]);
 
   // 檢查是否有來自獨立登入頁面的登入資訊
   useEffect(() => {
@@ -210,7 +360,7 @@ function App() {
         // 檢查 credential 是否在 5 分鐘內獲取
         const credentialAge = Date.now() - parseInt(timestamp);
         if (credentialAge < 300000) { // 5分鐘
-          console.log('Found Google auth credential from login page');
+          logger.debug('Found Google auth credential from login page');
 
           // 清除 localStorage
           localStorage.removeItem('google_auth_credential');
@@ -241,7 +391,7 @@ function App() {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, []);
+  }, [handleGoogleLogin]);
 
   // Handle OAuth code returned on redirect
   useEffect(() => {
@@ -257,31 +407,31 @@ function App() {
           storageSnapshot[key] = sessionStorage.getItem(key);
         }
       }
-      console.log('Session storage snapshot on redirect:', storageSnapshot);
+      logger.debug('Session storage snapshot on redirect', { storageSnapshot });
 
       handleGoogleLogin({ credential: code, tokenType: 'code', state });
 
       const cleanUrl = window.location.origin + window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
     }
-  }, []);
+  }, [handleGoogleLogin]);
 
   // 當 googleAuthReady 變為 true 時，確保 Google 標籤被正確處理
   useEffect(() => {
     if (googleAuthReady && !isAuthenticated) {
-      console.log('Google Auth ready, checking for HTML tags...');
+      logger.debug('Google Auth ready, checking for HTML tags...');
 
       // 檢查是否有 g_id_onload 元素
       const onloadElement = document.getElementById('g_id_onload');
-      console.log('g_id_onload element:', onloadElement);
+      logger.debug('g_id_onload element', { element: onloadElement });
 
       // 檢查是否有 g_id_signin 元素
       const signinElement = document.querySelector('.g_id_signin');
-      console.log('g_id_signin element:', signinElement);
+      logger.debug('g_id_signin element', { element: signinElement });
 
       // 如果元素存在但沒有內容，嘗試重新初始化
       if (onloadElement && signinElement && !signinElement.innerHTML.trim()) {
-        console.log('HTML tags found but empty, reinitializing...');
+        logger.debug('HTML tags found but empty, reinitializing...');
 
         // 觸發 Google 腳本重新處理標籤
         if (window.google && window.google.accounts) {
@@ -304,14 +454,14 @@ function App() {
               logo_alignment: 'left'
             });
 
-            console.log('Google button re-rendered successfully');
+            logger.debug('Google button re-rendered successfully');
           } catch (error) {
-            console.error('Failed to re-render Google button:', error);
+            logger.error('Failed to re-render Google button:', error);
           }
         }
       }
     }
-  }, [googleAuthReady, isAuthenticated]);
+  }, [googleAuthReady, isAuthenticated, handleGoogleResponse]);
 
   // 檢查是否有Google OAuth code需要處理
   useEffect(() => {
@@ -324,7 +474,7 @@ function App() {
         // 檢查code是否在5分鐘內獲取（避免重複處理）
         const codeAge = Date.now() - parseInt(timestamp);
         if (codeAge < 300000) { // 5分鐘
-          console.log('Processing Google OAuth code from callback');
+          logger.debug('Processing Google OAuth code from callback');
 
           // 清除localStorage中的code
           localStorage.removeItem('google_auth_code');
@@ -339,7 +489,7 @@ function App() {
       // 檢查是否有錯誤
       const error = localStorage.getItem('google_auth_error');
       if (error) {
-        console.error('Google auth error from callback:', error);
+        logger.error('Google auth error from callback:', error);
         localStorage.removeItem('google_auth_error');
         // 可以在這裡顯示錯誤提示
       }
@@ -360,7 +510,7 @@ function App() {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, []);
+  }, [handleGoogleLogin]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -389,15 +539,15 @@ function App() {
           requestBody.note = note.trim();
         }
 
-        console.log('Request body:', requestBody);
-        console.log('Custom code:', customCode);
-        console.log('Is valid custom code:', isValidCustomCode);
+        logger.debug('Request body', { requestBody });
+        logger.debug('Custom code', { customCode });
+        logger.debug('Is valid custom code', { isValidCustomCode });
 
         const options = createAuthenticatedRequest({
           method: 'POST',
           body: JSON.stringify(requestBody),
         });
-        console.log('Request options:', options);
+        logger.debug('Request options', { options });
         response = await fetch(`${API_ENDPOINT}/links`, options);
 
         if (handleAuthError(response)) {
@@ -497,7 +647,7 @@ function App() {
 
       window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
     } catch (err) {
-      console.error('Failed to start redirect login:', err);
+      logger.error('Failed to start redirect login:', err);
       setError(err.message || t.googleLoginFailed);
     }
   };
@@ -548,25 +698,6 @@ function App() {
       />
     </div>
   );
-
-  const resolveShortUrl = (link) => {
-    if (!link) return '';
-
-    // Prioritize backend-provided short_url
-    const candidates = [link.short_url, link.shortUrl];
-    const valid = candidates.find((value) => typeof value === 'string' && value.trim().length > 0);
-    if (valid) {
-      return valid;
-    }
-
-    // Fallback: construct short URL using custom domain
-    const base = 'https://chainy.luichu.dev';
-    if (link.code) {
-      return `${base}/${link.code}`;
-    }
-
-    return base;
-  };
 
   const handleToggleLinksList = () => {
     if (!isAuthenticated) return;
@@ -818,129 +949,6 @@ function App() {
 
 
 
-  const handleGoogleLogin = useCallback(async (googleResponse) => {
-    setError('');
-    setIsLoggingIn(true);
-
-    try {
-      const tokenType = googleResponse.tokenType
-        || (typeof googleResponse.credential === 'string' && googleResponse.credential.startsWith('4/') ? 'code' : 'id_token');
-
-      const redirectUri = tokenType === 'code' ? (GOOGLE_REDIRECT_URI || window.location.origin) : undefined;
-      let codeVerifier;
-
-      if (tokenType === 'code') {
-        const stateKey = googleResponse.state && googleResponse.state.startsWith('google_auth')
-          ? googleResponse.state
-          : 'google_auth';
-        const storageKey = `${PKCE_VERIFIER_PREFIX}_${stateKey}`;
-        codeVerifier = sessionStorage.getItem(storageKey);
-        console.log('Retrieved PKCE verifier', { storageKey, hasVerifier: !!codeVerifier });
-
-        if (!codeVerifier) {
-          throw new Error('Missing PKCE verifier for OAuth code exchange');
-        }
-
-        sessionStorage.removeItem(storageKey);
-      }
-
-      console.log('Submitting Google auth', { tokenType, redirectUri, hasVerifier: !!codeVerifier });
-
-      const authResult = await authenticateWithGoogle(googleResponse.credential, API_ENDPOINT, {
-        tokenTypeHint: tokenType,
-        redirectUri,
-        codeVerifier
-      });
-
-      if (authResult.jwt) {
-        saveToken(authResult.jwt);
-        if (authResult.user) {
-          saveUserProfile(authResult.user);
-          setUser(authResult.user);
-        } else {
-          setUser(getCurrentUser());
-        }
-        setIsAuthenticated(true);
-        setError('');
-      } else {
-        throw new Error(t.jwtMissing);
-      }
-    } catch (error) {
-      setError(error.message || t.googleLoginFailed);
-    } finally {
-      setIsLoggingIn(false);
-    }
-  }, [t.googleLoginFailed, t.jwtMissing]);
-
-  const handleGoogleResponse = useCallback((response) => {
-    console.log('Google login response:', response);
-    handleGoogleLogin(response);
-  }, []);
-
-  const fetchLinksList = async (retryAttempt = 0) => {
-    if (!isAuthenticated) return;
-
-    setIsLoadingLinks(true);
-    setError('');
-
-    try {
-      const currentUser = getCurrentUser();
-
-      if (!currentUser?.userId) {
-        throw new Error('User profile is missing. Please login again.');
-      }
-
-      const options = createAuthenticatedRequest({
-        method: 'GET',
-      });
-      const response = await fetch(`${API_ENDPOINT}/links`, options);
-
-      if (handleAuthError(response)) {
-        setIsAuthenticated(false);
-        setUser(null);
-        throw new Error('Authentication expired. Please login again.');
-      }
-
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.message || 'Failed to fetch links');
-      }
-
-      const data = await response.json();
-      const links = data.links || [];
-      const normalizedLinks = links.map(link => ({
-        ...link,
-        shortUrl: resolveShortUrl(link),
-        short_url: link.short_url || link.shortUrl || undefined
-      }));
-
-      // Additional client-side sorting
-      const sortedLinks = normalizedLinks.sort((a, b) => {
-        // Sort by creation date (newest first)
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      });
-
-      setLinksList(sortedLinks);
-      setRetryCount(0); // Reset retry count on success
-    } catch (err) {
-      console.error('Error fetching links:', err);
-
-      // Retry logic for network errors
-      if (retryAttempt < 2 && (err.message.includes('fetch') || err.message.includes('network') || err.message.includes('Failed to fetch'))) {
-        console.log(`Retrying fetchLinksList, attempt ${retryAttempt + 1}`);
-        setTimeout(() => {
-          fetchLinksList(retryAttempt + 1);
-        }, 1000 * (retryAttempt + 1)); // Exponential backoff
-        return;
-      }
-
-      setError(err.message || 'Failed to retrieve links');
-      setRetryCount(retryAttempt);
-    } finally {
-      setIsLoadingLinks(false);
-    }
-  };
-
 
   const handleCopyLink = async (link) => {
     const shortUrl = resolveShortUrl(link);
@@ -957,7 +965,7 @@ function App() {
         });
       }, 2000);
     } catch (err) {
-      console.error('Failed to copy:', err);
+      logger.error('Failed to copy:', err);
       setError(t.copyError);
     }
   };
