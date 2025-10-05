@@ -610,13 +610,78 @@ function App() {
                   </div>
                 )}
                 <div style={{
-                  fontSize: '0.875rem',
-                  color: '#60a5fa',
-                  fontFamily: 'monospace',
-                  wordBreak: 'break-all',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
                   marginBottom: '8px'
                 }}>
-                  {resolveShortUrl(link)}
+                  <a
+                    href={resolveShortUrl(link)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      fontSize: '0.875rem',
+                      color: '#60a5fa',
+                      fontFamily: 'monospace',
+                      wordBreak: 'break-all',
+                      textDecoration: 'none',
+                      flex: 1,
+                      transition: 'color 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.color = '#93c5fd';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.color = '#60a5fa';
+                    }}
+                  >
+                    {resolveShortUrl(link)}
+                  </a>
+                  <button
+                    onClick={() => handleCopyLink(link)}
+                    style={{
+                      backgroundColor: 'transparent',
+                      border: '1px solid rgba(96, 165, 250, 0.3)',
+                      borderRadius: '6px',
+                      padding: '6px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minWidth: '32px',
+                      height: '32px'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = 'rgba(96, 165, 250, 0.1)';
+                      e.target.style.borderColor = 'rgba(96, 165, 250, 0.5)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = 'transparent';
+                      e.target.style.borderColor = 'rgba(96, 165, 250, 0.3)';
+                    }}
+                    title={copiedLinks.has(link.code) ? t.buttonCopied : t.buttonCopy}
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke={copiedLinks.has(link.code) ? '#10b981' : '#60a5fa'}
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      {copiedLinks.has(link.code) ? (
+                        <path d="M20 6L9 17l-5-5" />
+                      ) : (
+                        <>
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </>
+                      )}
+                    </svg>
+                  </button>
                 </div>
                 <div style={{
                   fontSize: '0.75rem',
@@ -639,7 +704,8 @@ function App() {
                 {`${t.clicksLabel}: ${link.clicks || 0} | ${t.createdLabel}: ${new Date(link.created_at).toLocaleDateString()}`}
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button
+                {/* pin button */}
+                {/* <button
                   onClick={() => togglePin(link.code, link.pinned)}
                   style={{
                     padding: '6px 12px',
@@ -662,7 +728,7 @@ function App() {
                   }}
                 >
                   {link.pinned ? t.buttonUnpin : t.buttonPin}
-                </button>
+                </button> */}
                 <button
                   onClick={() => handleCopyLink(link)}
                   style={{
@@ -1585,7 +1651,6 @@ function App() {
                 fontSize: '0.75rem',
                 margin: '12px 0 0 0'
               }}>
-                安全、快速、免費的 Google 登入
               </p>
             </div>
           )}
@@ -1630,7 +1695,10 @@ function App() {
                     borderRadius: '8px',
                     padding: '16px',
                     marginBottom: '16px',
-                    backgroundColor: 'rgba(2, 6, 23, 0.8)'
+                    backgroundColor: 'rgba(2, 6, 23, 0.8)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px'
                   }}
                 >
                   <a
@@ -1643,7 +1711,8 @@ function App() {
                       fontSize: '0.875rem',
                       wordBreak: 'break-all',
                       transition: 'color 0.2s ease',
-                      textDecoration: 'none'
+                      textDecoration: 'none',
+                      flex: 1
                     }}
                     onMouseEnter={(e) => {
                       e.target.style.color = '#93c5fd';
@@ -1654,6 +1723,51 @@ function App() {
                   >
                     {result.shortUrl}
                   </a>
+                  <button
+                    onClick={handleCopy}
+                    style={{
+                      backgroundColor: 'transparent',
+                      border: '1px solid rgba(96, 165, 250, 0.3)',
+                      borderRadius: '6px',
+                      padding: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minWidth: '36px',
+                      height: '36px'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = 'rgba(96, 165, 250, 0.1)';
+                      e.target.style.borderColor = 'rgba(96, 165, 250, 0.5)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = 'transparent';
+                      e.target.style.borderColor = 'rgba(96, 165, 250, 0.3)';
+                    }}
+                    title={copied ? t.buttonCopied : t.buttonCopy}
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke={copied ? '#10b981' : '#60a5fa'}
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      {copied ? (
+                        <path d="M20 6L9 17l-5-5" />
+                      ) : (
+                        <>
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </>
+                      )}
+                    </svg>
+                  </button>
                 </div>
               </div>
 
@@ -1826,10 +1940,51 @@ function App() {
             fontSize: '0.75rem',
             textTransform: 'uppercase',
             letterSpacing: '0.1em',
-            animation: 'slideInUp 0.8s ease-out 0.4s forwards'
+            animation: 'slideInUp 0.8s ease-out 0.4s forwards',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px'
           }}
         >
-          {t.footer}
+          <span>{t.footer}</span>
+          <a
+            href="https://github.com/ChuLiYu"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              color: 'rgb(71, 85, 105)',
+              textDecoration: 'none',
+              transition: 'all 0.2s ease',
+              padding: '2px 4px',
+              borderRadius: '4px',
+              marginLeft: '8px'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.color = '#333';
+              e.target.style.backgroundColor = 'rgba(0, 0, 0, 0.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.color = 'rgb(71, 85, 105)';
+              e.target.style.backgroundColor = 'transparent';
+            }}
+            title="View on GitHub"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              style={{
+                marginRight: '4px'
+              }}
+            >
+              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+            </svg>
+            GitHub
+          </a>
         </div>
 
         {/* Google Auth Test Component - 暫時禁用 */}
