@@ -555,13 +555,14 @@ function App() {
   const resolveShortUrl = (link) => {
     if (!link) return '';
 
+    // Prioritize backend-provided short_url
     const candidates = [link.short_url, link.shortUrl];
     const valid = candidates.find((value) => typeof value === 'string' && value.trim().length > 0);
     if (valid) {
       return valid;
     }
 
-    // Use custom domain instead of API Gateway endpoint
+    // Fallback: construct short URL using custom domain
     const base = 'https://chainy.luichu.dev';
     if (link.code) {
       return `${base}/${link.code}`;
