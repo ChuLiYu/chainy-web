@@ -189,7 +189,7 @@ function App() {
     };
 
     checkGoogleAuth();
-  }, [handleGoogleLogin, handleGoogleResponse]);
+  }, []);
 
   // 檢查是否有來自獨立登入頁面的登入資訊
   useEffect(() => {
