@@ -232,8 +232,15 @@ function App() {
     setIsLoggingIn(true);
 
     try {
-      const tokenType = googleResponse.tokenType
-        || (typeof googleResponse.credential === 'string' && googleResponse.credential.startsWith('4/') ? 'code' : 'id_token');
+      // Determine token type based on the response
+      const tokenType = googleResponse.tokenType || (googleResponse.credential && googleResponse.credential.startsWith('4/') ? 'code' : 'id_token');
+
+      logger.debug('Google login response received', {
+        tokenType,
+        credentialLength: googleResponse.credential?.length,
+        credentialPrefix: googleResponse.credential?.substring(0, 50),
+        fullResponse: googleResponse
+      });
 
       const redirectUri = tokenType === 'code' ? (GOOGLE_REDIRECT_URI || window.location.origin) : undefined;
       let codeVerifier;
@@ -252,8 +259,6 @@ function App() {
 
         sessionStorage.removeItem(storageKey);
       }
-
-      logger.debug('Submitting Google auth', { tokenType, redirectUri, hasVerifier: !!codeVerifier });
 
       const authResult = await authenticateWithGoogle(googleResponse.credential, API_ENDPOINT, {
         tokenTypeHint: tokenType,
@@ -325,30 +330,10 @@ function App() {
   useEffect(() => {
     logger.debug('Initializing Google Auth...');
 
-    // 設置全局Google登錄處理器 - 將在函數定義後設置
-    // window.handleGoogleLogin = handleGoogleLogin;
-    // window.handleGoogleResponse = handleGoogleResponse;
-
-    // 檢查Google腳本是否載入，增加更長的等待時間
-    const checkGoogleAuth = (attempts = 0) => {
-      logger.debug(`Checking Google Auth, attempt ${attempts + 1}`);
-
-      if (window.google && window.google.accounts) {
-        logger.debug('Google Auth ready - using HTML tags approach');
-        setGoogleAuthReady(true);
-      } else if (attempts < 50) { // 最多等待 5 秒
-        logger.debug('Waiting for Google Auth...');
-        setTimeout(() => checkGoogleAuth(attempts + 1), 100);
-      } else {
-        logger.warn('Google Auth script failed to load after 5 seconds');
-        // 即使腳本沒載入，也設置為 ready 以顯示登錄按鈕
-        setGoogleAuthReady(true);
-      }
-    };
-
-    // 延遲一點開始檢查，確保腳本有時間載入
-    setTimeout(() => checkGoogleAuth(), 500);
-  }, [handleGoogleLogin, handleGoogleResponse]);
+    // 對於 OAuth 2.0 Authorization Code Flow，我們不需要 Google Identity Services
+    // 直接設置為 ready 以顯示登錄按鈕
+    setGoogleAuthReady(true);
+  }, []);
 
   // 檢查是否有來自獨立登入頁面的登入資訊
   useEffect(() => {
@@ -1083,13 +1068,33 @@ function App() {
               cursor: 'pointer'
             }}
             onClick={() => {
-              // 點擊頭像可以登出
+              // 點擊頭像可以登出 - 清除所有狀態回到初始狀態
               setIsAuthenticated(false);
               setUser(null);
               setShowLinksList(false);
               setLinksList([]);
+              setCopiedLinks(new Set());
+              setCustomCode('');
+              setIsValidCustomCode(false);
+              setNote('');
+              setError('');
+              setResult(null);
+              setCopied(false);
+              setIsLoggingIn(false);
               clearToken();
               clearUserProfile();
+              
+              // 清除 localStorage 中的其他相關資料
+              localStorage.removeItem('chainy_jwt_token');
+              localStorage.removeItem('chainy_user_profile');
+              localStorage.removeItem('chainy_links_list');
+              localStorage.removeItem('chainy_custom_code');
+              localStorage.removeItem('chainy_note');
+              
+              // 清除 sessionStorage 中的相關資料
+              sessionStorage.clear();
+              
+              logger.info('User logged out successfully, all state cleared');
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)';
