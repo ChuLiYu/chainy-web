@@ -10,6 +10,12 @@ import {
   handleAuthError
 } from './utils/auth.js';
 import { createLogger } from './utils/logger.js';
+import {
+  fetchWithServiceStatusCheck,
+  handleServiceStatusResponse,
+  checkServiceHealth
+} from './utils/serviceStatus.js';
+import { ServiceStatusDisplay, ServiceStatusBanner } from './components/ServiceStatusDisplay.jsx';
 
 // Initialize logger for App component
 const logger = createLogger('App');
@@ -138,6 +144,8 @@ function App() {
   const [customCode, setCustomCode] = useState('');
   const [isValidCustomCode, setIsValidCustomCode] = useState(false);
   const [note, setNote] = useState('');
+  const [serviceStatus, setServiceStatus] = useState(null);
+  const [showServiceStatusModal, setShowServiceStatusModal] = useState(false);
 
   const t = translations[language]; // Get current language translations
 
@@ -178,7 +186,7 @@ function App() {
       const options = createAuthenticatedRequest({
         method: 'GET',
       });
-      const response = await fetch(`${API_ENDPOINT}/links`, options);
+      const response = await fetchWithServiceStatusCheck(`${API_ENDPOINT}/links`, options, language);
 
       if (handleAuthError(response)) {
         setIsAuthenticated(false);
@@ -209,6 +217,13 @@ function App() {
       setRetryCount(0); // Reset retry count on success
     } catch (err) {
       logger.error('Error fetching links:', err);
+
+      // 檢查是否為服務狀態錯誤
+      if (err.isServiceDown && err.serviceStatus) {
+        setServiceStatus(err.serviceStatus);
+        setShowServiceStatusModal(true);
+        return;
+      }
 
       // Retry logic for network errors
       if (retryAttempt < 2 && (err.message.includes('fetch') || err.message.includes('network') || err.message.includes('Failed to fetch'))) {
@@ -277,6 +292,14 @@ function App() {
         throw new Error(t.jwtMissing);
       }
     } catch (error) {
+      // 檢查是否為服務狀態錯誤
+      if (error.isServiceDown && error.serviceStatus) {
+        setServiceStatus(error.serviceStatus);
+        setShowServiceStatusModal(true);
+        setIsLoggingIn(false);
+        return;
+      }
+
       setError(error.message || t.googleLoginFailed);
     } finally {
       setIsLoggingIn(false);
@@ -533,7 +556,7 @@ function App() {
           body: JSON.stringify(requestBody),
         });
         logger.debug('Request options', { options });
-        response = await fetch(`${API_ENDPOINT}/links`, options);
+        response = await fetchWithServiceStatusCheck(`${API_ENDPOINT}/links`, options, language);
 
         if (handleAuthError(response)) {
           setIsAuthenticated(false);
@@ -542,11 +565,11 @@ function App() {
         }
       } else {
         // Use anonymous endpoint for unauthenticated users
-        response = await fetch(`${API_ENDPOINT}/links/anonymous`, {
+        response = await fetchWithServiceStatusCheck(`${API_ENDPOINT}/links/anonymous`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ target: url }),
-        });
+        }, language);
       }
 
       if (!response.ok) {
@@ -583,6 +606,13 @@ function App() {
         });
       }
     } catch (err) {
+      // 檢查是否為服務狀態錯誤
+      if (err.isServiceDown && err.serviceStatus) {
+        setServiceStatus(err.serviceStatus);
+        setShowServiceStatusModal(true);
+        return;
+      }
+
       setError(err.message);
     } finally {
       setIsLoading(false);
@@ -592,6 +622,21 @@ function App() {
   const handleCopy = () => {
     navigator.clipboard.writeText(result.shortUrl);
     setCopied(true);
+  };
+
+  // 服務狀態處理函數
+  const handleServiceStatusRetry = () => {
+    setShowServiceStatusModal(false);
+    setServiceStatus(null);
+    // 重新嘗試當前操作
+    if (isAuthenticated && showLinksList) {
+      fetchLinksList();
+    }
+  };
+
+  const handleServiceStatusDismiss = () => {
+    setShowServiceStatusModal(false);
+    setServiceStatus(null);
   };
 
   const base64UrlEncode = (buffer) => btoa(String.fromCharCode(...new Uint8Array(buffer)))
@@ -1083,17 +1128,17 @@ function App() {
               setIsLoggingIn(false);
               clearToken();
               clearUserProfile();
-              
+
               // 清除 localStorage 中的其他相關資料
               localStorage.removeItem('chainy_jwt_token');
               localStorage.removeItem('chainy_user_profile');
               localStorage.removeItem('chainy_links_list');
               localStorage.removeItem('chainy_custom_code');
               localStorage.removeItem('chainy_note');
-              
+
               // 清除 sessionStorage 中的相關資料
               sessionStorage.clear();
-              
+
               logger.info('User logged out successfully, all state cleared');
             }}
             onMouseEnter={(e) => {
@@ -2060,6 +2105,16 @@ function App() {
         {/* <SimpleTest />
         <GoogleAuthTest /> */}
       </div>
+
+      {/* 服務狀態顯示組件 */}
+      {showServiceStatusModal && serviceStatus && (
+        <ServiceStatusDisplay
+          serviceStatus={serviceStatus}
+          language={language}
+          onRetry={handleServiceStatusRetry}
+          onDismiss={handleServiceStatusDismiss}
+        />
+      )}
     </div>
   );
 }

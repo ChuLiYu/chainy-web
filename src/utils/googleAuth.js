@@ -6,6 +6,7 @@
  */
 
 import { createLogger } from './logger.js';
+import { fetchWithServiceStatusCheck } from './serviceStatus.js';
 
 // Initialize logger for Google Auth utilities
 const logger = createLogger('googleAuth');
@@ -220,7 +221,7 @@ export async function authenticateWithGoogle(googleToken, apiEndpoint, options =
 
         const { tokenTypeHint, redirectUri, codeVerifier } = options;
 
-        const response = await fetch(`${apiEndpoint}/auth/google`, {
+        const response = await fetchWithServiceStatusCheck(`${apiEndpoint}/auth/google`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -232,7 +233,7 @@ export async function authenticateWithGoogle(googleToken, apiEndpoint, options =
                 redirectUri,
                 ...(codeVerifier ? { codeVerifier } : {})
             }),
-        });
+        }, 'zh');
 
         if (!response.ok) {
             const error = await response.json();
