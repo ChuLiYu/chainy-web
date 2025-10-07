@@ -36,7 +36,7 @@ npm install
 
 # Start development server
 npm run dev
-# Open http://localhost:5173
+# Open http://localhost:3000
 ```
 
 ### Available Scripts
@@ -65,7 +65,7 @@ VITE_CHAINY_API=https://your-api-endpoint.com
 
 # Google OAuth Configuration
 VITE_GOOGLE_CLIENT_ID=your_google_client_id
-VITE_GOOGLE_REDIRECT_URI=http://localhost:5173
+VITE_GOOGLE_REDIRECT_URI=http://localhost:3000
 
 # Optional: App Configuration
 VITE_APP_NAME=Chainy

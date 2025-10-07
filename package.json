@@ -9,7 +9,7 @@
     "url": "https://github.com/ChuLiYu/chainy-web.git"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --port 3000 --host",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"

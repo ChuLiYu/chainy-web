@@ -32,7 +32,7 @@ npm install
 npm run dev
 ```
 
-應用程式將在 `http://localhost:5173` 啟動，並支援熱重載。
+應用程式將在 `http://localhost:3000` 啟動，並支援熱重載。
 
 ### 建置生產版本
 
