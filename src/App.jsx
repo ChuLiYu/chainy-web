@@ -403,6 +403,43 @@ function App() {
   useEffect(() => {
     logger.debug('Initializing Google Auth...');
 
+    // 載入 Google Identity Services 腳本
+    const loadGoogleScript = () => {
+      return new Promise((resolve, reject) => {
+        // 檢查是否已經載入
+        if (window.google && window.google.accounts) {
+          logger.debug('Google script already loaded');
+          resolve();
+          return;
+        }
+
+        // 檢查是否已經有腳本標籤
+        const existingScript = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
+        if (existingScript) {
+          logger.debug('Google script tag already exists, waiting for load...');
+          existingScript.onload = () => resolve();
+          existingScript.onerror = () => reject(new Error('Failed to load Google script'));
+          return;
+        }
+
+        // 創建並載入腳本
+        logger.debug('Loading Google Identity Services script...');
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        script.onload = () => {
+          logger.debug('Google Identity Services script loaded successfully');
+          resolve();
+        };
+        script.onerror = () => {
+          logger.error('Failed to load Google Identity Services script');
+          reject(new Error('Failed to load Google script'));
+        };
+        document.head.appendChild(script);
+      });
+    };
+
     // 等待 Google Identity Services 腳本加載完成
     const waitForGoogleScript = () => {
       return new Promise((resolve) => {
@@ -464,12 +501,19 @@ function App() {
     };
 
     // 等待 Google 腳本加載完成後再創建元素
-    waitForGoogleScript().then(() => {
-      logger.debug('Google Identity Services script loaded, creating elements...');
-      createGoogleOAuthElements();
-      logger.debug('Setting googleAuthReady to true');
-      setGoogleAuthReady(true);
-    });
+    loadGoogleScript()
+      .then(() => waitForGoogleScript())
+      .then(() => {
+        logger.debug('Google Identity Services script loaded, creating elements...');
+        createGoogleOAuthElements();
+        logger.debug('Setting googleAuthReady to true');
+        setGoogleAuthReady(true);
+      })
+      .catch((error) => {
+        logger.error('Failed to load Google Identity Services:', error);
+        // 即使腳本載入失敗，也設置為 ready 以避免無限等待
+        setGoogleAuthReady(true);
+      });
   }, []);
 
   // 檢查是否有來自獨立登入頁面的登入資訊

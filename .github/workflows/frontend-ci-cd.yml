@@ -49,38 +49,38 @@ jobs:
       - name: Build
         run: |
           echo "🔧 Building frontend with environment variables..."
-          
+
           # Check if required secrets are available
           if [ -z "${{ secrets.GOOGLE_CLIENT_ID }}" ]; then
             echo "❌ ERROR: GOOGLE_CLIENT_ID secret is not set!"
             echo "Please add GOOGLE_CLIENT_ID to GitHub Secrets in chainy-web repository"
             exit 1
           fi
-          
+
           if [ -z "${{ secrets.CHAINY_API_ENDPOINT }}" ]; then
             echo "❌ ERROR: CHAINY_API_ENDPOINT secret is not set!"
             echo "Please add CHAINY_API_ENDPOINT to GitHub Secrets in chainy-web repository"
             exit 1
           fi
-          
+
           # Create environment file
           echo "VITE_CHAINY_API=${{ secrets.CHAINY_API_ENDPOINT }}" > .env.production
           echo "VITE_GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}" >> .env.production
           echo "VITE_GOOGLE_REDIRECT_URI=https://chainy.luichu.dev" >> .env.production
           echo "VITE_ENVIRONMENT=production" >> .env.production
-          
+
           echo "📋 Environment variables for production build:"
           echo "VITE_CHAINY_API: ${{ secrets.CHAINY_API_ENDPOINT }}"
           echo "VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}"
           echo "VITE_GOOGLE_REDIRECT_URI: https://chainy.luichu.dev"
           echo "VITE_ENVIRONMENT: production"
-          
+
           echo "📄 Generated .env.production file:"
           cat .env.production
-          
+
           echo "🏗️ Starting build process..."
           npm run build
-          
+
           echo "✅ Build completed successfully"
 
       - name: Configure AWS credentials
