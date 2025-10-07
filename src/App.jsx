@@ -362,9 +362,9 @@ function App() {
       // 創建 g_id_onload 元素
       const onloadDiv = document.createElement('div');
       onloadDiv.id = 'g_id_onload';
-      onloadDiv.setAttribute('data-client_id', GOOGLE_CLIENT_ID);
+      onloadDiv.setAttribute('data-client-id', GOOGLE_CLIENT_ID);
       onloadDiv.setAttribute('data-callback', 'handleGoogleResponse');
-      onloadDiv.setAttribute('data-auto_prompt', 'false');
+      onloadDiv.setAttribute('data-auto-prompt', 'false');
       onloadDiv.style.display = 'none';
       document.body.appendChild(onloadDiv);
 
@@ -376,7 +376,7 @@ function App() {
       signinDiv.setAttribute('data-theme', 'outline');
       signinDiv.setAttribute('data-text', 'sign_in_with');
       signinDiv.setAttribute('data-shape', 'rectangular');
-      signinDiv.setAttribute('data-logo_alignment', 'left');
+      signinDiv.setAttribute('data-logo-alignment', 'left');
       signinDiv.style.display = 'none';
       document.body.appendChild(signinDiv);
 

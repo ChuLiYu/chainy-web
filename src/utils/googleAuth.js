@@ -277,9 +277,9 @@ export function createGoogleButton(elementId) {
 
     container.innerHTML = `
     <div id="g_id_onload"
-         data-client_id="${GOOGLE_CLIENT_ID}"
+         data-client-id="${GOOGLE_CLIENT_ID}"
          data-callback="handleGoogleResponse"
-         data-auto_prompt="false">
+         data-auto-prompt="false">
     </div>
     <div class="g_id_signin"
          data-type="standard"
@@ -287,7 +287,7 @@ export function createGoogleButton(elementId) {
          data-theme="outline"
          data-text="sign_in_with"
          data-shape="rectangular"
-         data-logo_alignment="left">
+         data-logo-alignment="left">
     </div>
   `;
 }
