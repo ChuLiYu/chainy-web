@@ -29,6 +29,14 @@ import {
 
 const API_ENDPOINT = import.meta.env.VITE_CHAINY_API ?? 'https://9qwxcajqf9.execute-api.ap-northeast-1.amazonaws.com';
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? 'YOUR_GOOGLE_CLIENT_ID_HERE';
+
+// 調試：檢查環境變數載入
+console.log('Environment variables check:', {
+  VITE_GOOGLE_CLIENT_ID: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+  VITE_CHAINY_API: import.meta.env.VITE_CHAINY_API,
+  VITE_GOOGLE_REDIRECT_URI: import.meta.env.VITE_GOOGLE_REDIRECT_URI,
+  GOOGLE_CLIENT_ID: GOOGLE_CLIENT_ID
+});
 const PKCE_VERIFIER_PREFIX = 'google_pkce_verifier';
 
 // 安全的重定向 URI 選擇函數
@@ -38,7 +46,7 @@ function getSecureRedirectUri() {
     console.log('Using environment redirect URI:', import.meta.env.VITE_GOOGLE_REDIRECT_URI);
     return import.meta.env.VITE_GOOGLE_REDIRECT_URI;
   }
-  
+
   // 2. 根據當前域名自動選擇
   const currentOrigin = window.location.origin;
   if (currentOrigin === 'https://chainy.luichu.dev') {
@@ -48,7 +56,7 @@ function getSecureRedirectUri() {
     console.log('Using local development redirect URI based on origin:', currentOrigin);
     return 'http://localhost:3000';
   }
-  
+
   // 3. 默認使用本地開發
   console.log('Using default local development redirect URI');
   return 'http://localhost:3000';
