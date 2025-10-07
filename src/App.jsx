@@ -527,16 +527,16 @@ function App() {
     }
 
     if (code && state && state.startsWith('google_auth')) {
-      logger.debug('OAuth callback detected:', { 
-        code: code.substring(0, 20) + '...', 
-        state 
+      logger.debug('OAuth callback detected:', {
+        code: code.substring(0, 20) + '...',
+        state
       });
-      
+
       const handleOAuthCallback = async () => {
         try {
           setIsLoggingIn(true);
           setError('');
-          
+
           // Exchange code for token via backend
           const response = await fetch(`${API_ENDPOINT}/auth/google`, {
             method: 'POST',
@@ -551,21 +551,21 @@ function App() {
               codeVerifier: null // PKCE not implemented yet
             })
           });
-          
+
           if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           }
-          
+
           const data = await response.json();
           logger.debug('OAuth success:', data);
-          
+
           // Store user info
           setUser(data.user);
           setIsAuthenticated(true);
-          
+
           // Clear URL parameters
           window.history.replaceState({}, document.title, window.location.pathname);
-          
+
         } catch (err) {
           logger.error('OAuth callback error:', err);
           setError('登入失敗: ' + err.message);
@@ -573,7 +573,7 @@ function App() {
           setIsLoggingIn(false);
         }
       };
-      
+
       handleOAuthCallback();
 
       const cleanUrl = window.location.origin + window.location.pathname;
