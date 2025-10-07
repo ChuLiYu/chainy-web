@@ -351,8 +351,39 @@ function App() {
   useEffect(() => {
     logger.debug('Initializing Google Auth...');
 
-    // 對於 OAuth 2.0 Authorization Code Flow，我們不需要 Google Identity Services
-    // 直接設置為 ready 以顯示登錄按鈕
+    // 創建 Google OAuth HTML 元素
+    const createGoogleOAuthElements = () => {
+      // 檢查是否已經存在
+      if (document.getElementById('g_id_onload') || document.querySelector('.g_id_signin')) {
+        logger.debug('Google OAuth elements already exist');
+        return;
+      }
+
+      // 創建 g_id_onload 元素
+      const onloadDiv = document.createElement('div');
+      onloadDiv.id = 'g_id_onload';
+      onloadDiv.setAttribute('data-client_id', GOOGLE_CLIENT_ID);
+      onloadDiv.setAttribute('data-callback', 'handleGoogleResponse');
+      onloadDiv.setAttribute('data-auto_prompt', 'false');
+      onloadDiv.style.display = 'none';
+      document.body.appendChild(onloadDiv);
+
+      // 創建 g_id_signin 元素
+      const signinDiv = document.createElement('div');
+      signinDiv.className = 'g_id_signin';
+      signinDiv.setAttribute('data-type', 'standard');
+      signinDiv.setAttribute('data-size', 'large');
+      signinDiv.setAttribute('data-theme', 'outline');
+      signinDiv.setAttribute('data-text', 'sign_in_with');
+      signinDiv.setAttribute('data-shape', 'rectangular');
+      signinDiv.setAttribute('data-logo_alignment', 'left');
+      signinDiv.style.display = 'none';
+      document.body.appendChild(signinDiv);
+
+      logger.debug('Google OAuth elements created');
+    };
+
+    createGoogleOAuthElements();
     setGoogleAuthReady(true);
   }, []);
 
@@ -656,6 +687,13 @@ function App() {
 
   const handleRedirectLogin = async () => {
     try {
+      logger.debug('Starting Google OAuth redirect login');
+      logger.debug('GOOGLE_CLIENT_ID', { clientId: GOOGLE_CLIENT_ID });
+
+      if (!GOOGLE_CLIENT_ID) {
+        throw new Error('Google Client ID not configured');
+      }
+
       const state = `google_auth_${generateRandomString(16)}`;
       const { verifier, challenge } = await createPkcePair();
       sessionStorage.setItem(`${PKCE_VERIFIER_PREFIX}_${state}`, verifier);
@@ -671,6 +709,12 @@ function App() {
         state,
         code_challenge: challenge,
         code_challenge_method: 'S256'
+      });
+
+      logger.debug('Redirecting to Google OAuth', { 
+        redirectUri, 
+        state, 
+        hasChallenge: !!challenge 
       });
 
       window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
