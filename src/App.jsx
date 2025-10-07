@@ -598,10 +598,10 @@ function App() {
           localStorage.setItem('chainy_user_profile', JSON.stringify(data.user));
           setUser(data.user);
           setIsAuthenticated(true);
-          
+
           // Clear PKCE verifier from session storage
           sessionStorage.removeItem(`pkce_verifier_${state}`);
-          
+
           // Clear URL parameters
           window.history.replaceState({}, document.title, window.location.pathname);
 
