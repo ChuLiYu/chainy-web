@@ -384,7 +384,7 @@ function App() {
         const state = `google_auth_${generateRandomString(16)}`;
         const { verifier, challenge } = await createPkcePair();
         sessionStorage.setItem(`pkce_verifier_${state}`, verifier);
-        
+
         logger.debug('PKCE parameters:', {
           state,
           verifier: verifier.substring(0, 20) + '...',
@@ -541,26 +541,26 @@ function App() {
     }
 
     if (code && state && state.startsWith('google_auth')) {
-      logger.debug('OAuth callback detected:', { 
-        code: code.substring(0, 20) + '...', 
-        state 
+      logger.debug('OAuth callback detected:', {
+        code: code.substring(0, 20) + '...',
+        state
       });
-      
+
       const handleOAuthCallback = async () => {
         try {
           setIsLoggingIn(true);
           setError('');
-          
+
           logger.debug('=== OAUTH CALLBACK DEBUG ===');
           logger.debug('API_ENDPOINT:', API_ENDPOINT);
           logger.debug('GOOGLE_REDIRECT_URI:', GOOGLE_REDIRECT_URI);
           logger.debug('Code:', code ? code.substring(0, 20) + '...' : 'null');
           logger.debug('State:', state);
-          
+
           // 獲取 PKCE verifier
           const pkceVerifier = sessionStorage.getItem(`pkce_verifier_${state}`);
           logger.debug('PKCE verifier:', pkceVerifier ? pkceVerifier.substring(0, 20) + '...' : 'null');
-          
+
           const requestBody = {
             googleToken: code,
             provider: 'google',
@@ -593,7 +593,9 @@ function App() {
           const data = await response.json();
           logger.debug('OAuth success:', data);
 
-          // Store user info
+          // Store user info and JWT token
+          localStorage.setItem('chainy_jwt_token', data.jwt);
+          localStorage.setItem('chainy_user_profile', JSON.stringify(data.user));
           setUser(data.user);
           setIsAuthenticated(true);
           
