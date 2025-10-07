@@ -350,7 +350,7 @@ function App() {
 
   const handleGoogleResponse = useCallback(() => {
     logger.debug('Google login button clicked - redirecting to OAuth 2.0 flow');
-    
+
     // 直接執行 OAuth 重定向，不依賴其他函數
     const startOAuthRedirect = async () => {
       try {
@@ -518,90 +518,66 @@ function App() {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     const state = params.get('state');
+    const error = params.get('error');
+
+    if (error) {
+      logger.error('OAuth error:', error);
+      setError(`登入失敗: ${error}`);
+      return;
+    }
 
     if (code && state && state.startsWith('google_auth')) {
-      const storageSnapshot = {};
-      for (let i = 0; i < sessionStorage.length; i += 1) {
-        const key = sessionStorage.key(i);
-        if (key) {
-          storageSnapshot[key] = sessionStorage.getItem(key);
+      logger.debug('OAuth callback detected:', { 
+        code: code.substring(0, 20) + '...', 
+        state 
+      });
+      
+      try {
+        setIsLoggingIn(true);
+        setError('');
+        
+        // Exchange code for token via backend
+        const response = await fetch(`${API_ENDPOINT}/auth/google`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            googleToken: code,
+            provider: 'google',
+            tokenType: 'code',
+            redirectUri: GOOGLE_REDIRECT_URI,
+            codeVerifier: null // PKCE not implemented yet
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
+        
+        const data = await response.json();
+        logger.debug('OAuth success:', data);
+        
+        // Store user info
+        setUser(data.user);
+        setIsAuthenticated(true);
+        
+        // Clear URL parameters
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+      } catch (err) {
+        logger.error('OAuth callback error:', err);
+        setError('登入失敗: ' + err.message);
+      } finally {
+        setIsLoggingIn(false);
       }
-      logger.debug('Session storage snapshot on redirect', { storageSnapshot });
-
-      handleGoogleLogin({ credential: code, tokenType: 'code', state });
 
       const cleanUrl = window.location.origin + window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
     }
-  }, [handleGoogleLogin]);
+  }, [API_ENDPOINT, GOOGLE_REDIRECT_URI, logger, setIsAuthenticated, setIsLoggingIn, setError, setUser]);
 
   // Pure OAuth 2.0 - no GSI elements needed
-
-  // Pure OAuth 2.0 callback handling
-  useEffect(() => {
-    const handleOAuthCallback = async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code');
-      const state = urlParams.get('state');
-      const error = urlParams.get('error');
-
-      if (error) {
-        logger.error('OAuth error:', error);
-        setError(`登入失敗: ${error}`);
-        return;
-      }
-
-      if (code && state && state.startsWith('google_auth_')) {
-        logger.debug('OAuth callback detected:', {
-          code: code.substring(0, 20) + '...',
-          state
-        });
-
-        try {
-          setIsLoggingIn(true);
-          setError('');
-
-          // Exchange code for token via backend
-          const response = await fetch(`${API_ENDPOINT}/auth/google`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              googleToken: code,
-              provider: 'google',
-              tokenType: 'code',
-              redirectUri: GOOGLE_REDIRECT_URI,
-              codeVerifier: null // PKCE not implemented yet
-            })
-          });
-
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          }
-
-          const data = await response.json();
-          logger.debug('OAuth success:', data);
-
-          // Store user info
-          setUser(data.user);
-          setIsAuthenticated(true);
-
-          // Clear URL parameters
-          window.history.replaceState({}, document.title, window.location.pathname);
-
-        } catch (err) {
-          logger.error('OAuth callback error:', err);
-          setError('登入失敗: ' + err.message);
-        } finally {
-          setIsLoggingIn(false);
-        }
-      }
-    };
-
-    handleOAuthCallback();
-  }, [API_ENDPOINT, GOOGLE_REDIRECT_URI, logger, setIsAuthenticated, setIsLoggingIn, setError, setUser]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
