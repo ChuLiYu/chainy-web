@@ -11,9 +11,7 @@ import {
 } from './utils/auth.js';
 import { createLogger } from './utils/logger.js';
 import {
-  fetchWithServiceStatusCheck,
-  handleServiceStatusResponse,
-  checkServiceHealth
+  fetchWithServiceStatusCheck
 } from './utils/serviceStatus.js';
 import { ServiceStatusDisplay, ServiceStatusBanner } from './components/ServiceStatusDisplay.jsx';
 
@@ -239,7 +237,7 @@ function App() {
     } finally {
       setIsLoadingLinks(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, language]);
 
   // Define Google login handlers early to avoid initialization issues
   const handleGoogleLogin = useCallback(async (googleResponse) => {

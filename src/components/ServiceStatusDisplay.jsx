@@ -5,10 +5,10 @@
  */
 
 import React from 'react';
-import { createLogger } from '../utils/logger.js';
+// import { createLogger } from '../utils/logger.js';
 
 // Initialize logger for service status component
-const logger = createLogger('ServiceStatusDisplay');
+// const logger = createLogger('ServiceStatusDisplay');
 
 /**
  * 服務狀態顯示組件
