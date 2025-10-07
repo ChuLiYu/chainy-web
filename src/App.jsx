@@ -362,8 +362,8 @@ function App() {
   useEffect(() => {
     window.handleGoogleLogin = handleGoogleLogin;
     window.handleGoogleResponse = handleGoogleResponse;
-    window.handleRedirectLogin = handleRedirectLogin;
-  }, [handleGoogleLogin, handleGoogleResponse, handleRedirectLogin]);
+    // handleRedirectLogin will be set later when it's defined
+  }, [handleGoogleLogin, handleGoogleResponse]);
 
   useEffect(() => {
     const urlPattern = /^https?:\/\/.+/;
@@ -725,6 +725,11 @@ function App() {
       setError(err.message || t.googleLoginFailed);
     }
   };
+
+  // Set handleRedirectLogin as global function after it's defined
+  useEffect(() => {
+    window.handleRedirectLogin = handleRedirectLogin;
+  }, [handleRedirectLogin]);
 
   // Loading animation component
   const LoadingSpinner = ({ size = 20, color = 'rgba(59, 130, 246, 0.8)' }) => (
