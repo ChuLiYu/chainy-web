@@ -47,7 +47,7 @@ function getSecureRedirectUri() {
   logger.debug('Current origin:', window.location.origin);
   logger.debug('Forcing localhost:3000 for Google OAuth');
   logger.debug('=== END REDIRECT URI DEBUG ===');
-  
+
   return 'http://localhost:3000';
 }
 
@@ -346,6 +346,14 @@ function App() {
     const urlPattern = /^https?:\/\/.+/;
     setIsValidUrl(urlPattern.test(url));
   }, [url]);
+
+  // 監聽登入狀態變化，載入短網址列表
+  useEffect(() => {
+    if (isAuthenticated) {
+      logger.debug('User authenticated, fetching links list');
+      fetchLinksList();
+    }
+  }, [isAuthenticated, fetchLinksList]);
 
   useEffect(() => {
     // 驗證自訂代號：只允許字母、數字、連字符、底線，長度4-32字符
@@ -1793,12 +1801,8 @@ function App() {
             )}
           </form>
 
-          {/* Google登錄按鈕 - 強制顯示用於調試 */}
-          {console.log('Google button render check:', { isAuthenticated, googleAuthReady, shouldShow: !isAuthenticated && googleAuthReady })}
-          {(() => {
-            console.log('Rendering Google login button (forced)');
-            return true;
-          })() && (
+          {/* Google登錄按鈕 - 只在未登入時顯示 */}
+          {!isAuthenticated && googleAuthReady && (
               <div
                 style={{
                   marginTop: '24px',
