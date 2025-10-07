@@ -43,8 +43,10 @@ function App() {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              code: code,
-              redirect_uri: GOOGLE_REDIRECT_URI
+              googleToken: code,
+              provider: 'google',
+              tokenType: 'code',
+              redirectUri: GOOGLE_REDIRECT_URI
             })
           });
 
