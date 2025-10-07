@@ -350,19 +350,71 @@ function App() {
 
   const handleGoogleResponse = useCallback(() => {
     logger.debug('Google login button clicked - redirecting to OAuth 2.0 flow');
-    // Call handleRedirectLogin directly without dependency
-    if (window.handleRedirectLogin) {
-      window.handleRedirectLogin();
-    } else {
-      logger.error('handleRedirectLogin not available');
-    }
-  }, []);
+    
+    // 直接執行 OAuth 重定向，不依賴其他函數
+    const startOAuthRedirect = async () => {
+      try {
+        logger.debug('Starting Google OAuth redirect login');
+        logger.debug('GOOGLE_CLIENT_ID', { clientId: GOOGLE_CLIENT_ID });
+
+        if (!GOOGLE_CLIENT_ID) {
+          throw new Error('Google Client ID not configured');
+        }
+
+        const generateRandomString = (length) => {
+          const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+          const array = new Uint8Array(length);
+          window.crypto.getRandomValues(array);
+          return Array.from(array, (byte) => charset[byte % charset.length]).join('');
+        };
+
+        const base64UrlEncode = (buffer) => btoa(String.fromCharCode(...new Uint8Array(buffer)))
+          .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+        const createPkcePair = async () => {
+          const verifier = generateRandomString(128);
+          const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+          const challenge = base64UrlEncode(digest);
+          return { verifier, challenge };
+        };
+
+        const state = `google_auth_${generateRandomString(16)}`;
+        const { verifier, challenge } = await createPkcePair();
+        sessionStorage.setItem(`pkce_verifier_${state}`, verifier);
+
+        const redirectUri = GOOGLE_REDIRECT_URI || window.location.origin;
+        const params = new URLSearchParams({
+          client_id: GOOGLE_CLIENT_ID,
+          redirect_uri: redirectUri,
+          response_type: 'code',
+          scope: 'openid email profile',
+          include_granted_scopes: 'true',
+          access_type: 'offline',
+          state,
+          code_challenge: challenge,
+          code_challenge_method: 'S256'
+        });
+
+        logger.debug('Redirecting to Google OAuth', {
+          redirectUri,
+          state,
+          hasChallenge: !!challenge
+        });
+
+        window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+      } catch (err) {
+        logger.error('Failed to start redirect login:', err);
+        setError(err.message || 'Google 登入失敗');
+      }
+    };
+
+    startOAuthRedirect();
+  }, [GOOGLE_CLIENT_ID, GOOGLE_REDIRECT_URI, logger, setError]);
 
   // 設置全局Google登錄處理器
   useEffect(() => {
     window.handleGoogleLogin = handleGoogleLogin;
     window.handleGoogleResponse = handleGoogleResponse;
-    // handleRedirectLogin will be set later when it's defined
   }, [handleGoogleLogin, handleGoogleResponse]);
 
   useEffect(() => {
@@ -686,50 +738,6 @@ function App() {
     const challenge = base64UrlEncode(digest);
     return { verifier, challenge };
   };
-
-  const handleRedirectLogin = async () => {
-    try {
-      logger.debug('Starting Google OAuth redirect login');
-      logger.debug('GOOGLE_CLIENT_ID', { clientId: GOOGLE_CLIENT_ID });
-
-      if (!GOOGLE_CLIENT_ID) {
-        throw new Error('Google Client ID not configured');
-      }
-
-      const state = `google_auth_${generateRandomString(16)}`;
-      const { verifier, challenge } = await createPkcePair();
-      sessionStorage.setItem(`${PKCE_VERIFIER_PREFIX}_${state}`, verifier);
-
-      const redirectUri = GOOGLE_REDIRECT_URI || window.location.origin;
-      const params = new URLSearchParams({
-        client_id: GOOGLE_CLIENT_ID,
-        redirect_uri: redirectUri,
-        response_type: 'code',
-        scope: 'openid email profile',
-        include_granted_scopes: 'true',
-        access_type: 'offline',
-        state,
-        code_challenge: challenge,
-        code_challenge_method: 'S256'
-      });
-
-      logger.debug('Redirecting to Google OAuth', {
-        redirectUri,
-        state,
-        hasChallenge: !!challenge
-      });
-
-      window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-    } catch (err) {
-      logger.error('Failed to start redirect login:', err);
-      setError(err.message || t.googleLoginFailed);
-    }
-  };
-
-  // Set handleRedirectLogin as global function after it's defined
-  useEffect(() => {
-    window.handleRedirectLogin = handleRedirectLogin;
-  }, [handleRedirectLogin]);
 
   // Loading animation component
   const LoadingSpinner = ({ size = 20, color = 'rgba(59, 130, 246, 0.8)' }) => (
