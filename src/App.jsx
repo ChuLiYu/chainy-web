@@ -42,13 +42,30 @@ const PKCE_VERIFIER_PREFIX = 'google_pkce_verifier';
 
 // 安全的重定向 URI 選擇函數
 function getSecureRedirectUri() {
-  // 強制使用 localhost 避免網路 IP 問題
   logger.debug('=== REDIRECT URI DEBUG ===');
   logger.debug('Current origin:', window.location.origin);
-  logger.debug('Forcing localhost:3000 for Google OAuth');
-  logger.debug('=== END REDIRECT URI DEBUG ===');
+  logger.debug('VITE_GOOGLE_REDIRECT_URI:', import.meta.env.VITE_GOOGLE_REDIRECT_URI);
 
-  return 'http://localhost:3000';
+  // 1. 優先使用環境變數
+  if (import.meta.env.VITE_GOOGLE_REDIRECT_URI) {
+    logger.debug('Using environment variable redirect URI:', import.meta.env.VITE_GOOGLE_REDIRECT_URI);
+    return import.meta.env.VITE_GOOGLE_REDIRECT_URI;
+  }
+
+  // 2. 根據當前域名自動選擇
+  const currentOrigin = window.location.origin;
+  if (currentOrigin === 'https://chainy.luichu.dev') {
+    logger.debug('Using production redirect URI:', 'https://chainy.luichu.dev');
+    return 'https://chainy.luichu.dev';
+  } else if (currentOrigin === 'http://localhost:3000' || currentOrigin === 'http://127.0.0.1:3000') {
+    logger.debug('Using local development redirect URI:', 'http://localhost:3000');
+    return 'http://localhost:3000';
+  }
+
+  // 3. 默認使用當前域名
+  logger.debug('Using current origin as redirect URI:', currentOrigin);
+  logger.debug('=== END REDIRECT URI DEBUG ===');
+  return currentOrigin;
 }
 
 const GOOGLE_REDIRECT_URI = getSecureRedirectUri();
