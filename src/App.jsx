@@ -354,18 +354,23 @@ function App() {
     // 等待 Google Identity Services 腳本加載完成
     const waitForGoogleScript = () => {
       return new Promise((resolve) => {
+        console.log('Checking Google script availability...');
         if (window.google && window.google.accounts) {
+          console.log('Google script already available');
           resolve();
         } else {
+          console.log('Google script not available, waiting...');
           const checkInterval = setInterval(() => {
             if (window.google && window.google.accounts) {
+              console.log('Google script loaded successfully');
               clearInterval(checkInterval);
               resolve();
             }
           }, 100);
-
+          
           // 超時保護
           setTimeout(() => {
+            console.log('Google script loading timeout');
             clearInterval(checkInterval);
             resolve();
           }, 5000);
@@ -375,8 +380,10 @@ function App() {
 
     // 創建 Google OAuth HTML 元素
     const createGoogleOAuthElements = () => {
+      console.log('Creating Google OAuth elements...');
       // 檢查是否已經存在
       if (document.getElementById('g_id_onload') || document.querySelector('.g_id_signin')) {
+        console.log('Google OAuth elements already exist');
         logger.debug('Google OAuth elements already exist');
         return;
       }
@@ -402,13 +409,16 @@ function App() {
       signinDiv.style.display = 'none';
       document.body.appendChild(signinDiv);
 
+      console.log('Google OAuth elements created successfully');
       logger.debug('Google OAuth elements created');
     };
 
     // 等待 Google 腳本加載完成後再創建元素
     waitForGoogleScript().then(() => {
+      console.log('Google Identity Services script loaded, creating elements...');
       logger.debug('Google Identity Services script loaded');
       createGoogleOAuthElements();
+      console.log('Setting googleAuthReady to true');
       setGoogleAuthReady(true);
     });
   }, []);
