@@ -1760,7 +1760,7 @@ function App() {
                 marginBottom: '12px'
               }}>
                 <button
-                  onClick={handleRedirectLogin}
+                  onClick={handleGoogleResponse}
                   disabled={isLoggingIn}
                   style={{
                     display: 'flex',
