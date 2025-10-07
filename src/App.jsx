@@ -367,7 +367,7 @@ function App() {
               resolve();
             }
           }, 100);
-          
+
           // 超時保護
           setTimeout(() => {
             console.log('Google script loading timeout');
@@ -1759,9 +1759,12 @@ function App() {
             )}
           </form>
 
-          {/* Google登錄按鈕 - 只在未登入時顯示，放在下方 */}
+          {/* Google登錄按鈕 - 強制顯示用於調試 */}
           {console.log('Google button render check:', { isAuthenticated, googleAuthReady, shouldShow: !isAuthenticated && googleAuthReady })}
-          {!isAuthenticated && googleAuthReady && (
+          {(() => {
+            console.log('Rendering Google login button (forced)');
+            return true;
+          })() && (
             <div
               style={{
                 marginTop: '24px',
