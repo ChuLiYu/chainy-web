@@ -31,34 +31,23 @@ const API_ENDPOINT = import.meta.env.VITE_CHAINY_API ?? 'https://9qwxcajqf9.exec
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? 'YOUR_GOOGLE_CLIENT_ID_HERE';
 
 // 調試：檢查環境變數載入
-console.log('Environment variables check:', {
-  VITE_GOOGLE_CLIENT_ID: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-  VITE_CHAINY_API: import.meta.env.VITE_CHAINY_API,
-  VITE_GOOGLE_REDIRECT_URI: import.meta.env.VITE_GOOGLE_REDIRECT_URI,
-  GOOGLE_CLIENT_ID: GOOGLE_CLIENT_ID
-});
+logger.debug('=== ENVIRONMENT VARIABLES DEBUG ===');
+logger.debug('VITE_GOOGLE_CLIENT_ID:', import.meta.env.VITE_GOOGLE_CLIENT_ID);
+logger.debug('VITE_CHAINY_API:', import.meta.env.VITE_CHAINY_API);
+logger.debug('VITE_GOOGLE_REDIRECT_URI:', import.meta.env.VITE_GOOGLE_REDIRECT_URI);
+logger.debug('GOOGLE_CLIENT_ID (resolved):', GOOGLE_CLIENT_ID);
+logger.debug('All import.meta.env:', import.meta.env);
+logger.debug('=== END DEBUG ===');
 const PKCE_VERIFIER_PREFIX = 'google_pkce_verifier';
 
 // 安全的重定向 URI 選擇函數
 function getSecureRedirectUri() {
-  // 1. 優先使用環境變數
-  if (import.meta.env.VITE_GOOGLE_REDIRECT_URI) {
-    console.log('Using environment redirect URI:', import.meta.env.VITE_GOOGLE_REDIRECT_URI);
-    return import.meta.env.VITE_GOOGLE_REDIRECT_URI;
-  }
-
-  // 2. 根據當前域名自動選擇
-  const currentOrigin = window.location.origin;
-  if (currentOrigin === 'https://chainy.luichu.dev') {
-    console.log('Using production redirect URI based on origin:', currentOrigin);
-    return 'https://chainy.luichu.dev';
-  } else if (currentOrigin === 'http://localhost:3000' || currentOrigin === 'http://127.0.0.1:3000') {
-    console.log('Using local development redirect URI based on origin:', currentOrigin);
-    return 'http://localhost:3000';
-  }
-
-  // 3. 默認使用本地開發
-  console.log('Using default local development redirect URI');
+  // 強制使用 localhost 避免網路 IP 問題
+  logger.debug('=== REDIRECT URI DEBUG ===');
+  logger.debug('Current origin:', window.location.origin);
+  logger.debug('Forcing localhost:3000 for Google OAuth');
+  logger.debug('=== END REDIRECT URI DEBUG ===');
+  
   return 'http://localhost:3000';
 }
 
@@ -548,6 +537,13 @@ function App() {
         if (window.google && window.google.accounts) {
           try {
             // 重新初始化
+            logger.debug('=== GOOGLE OAUTH INITIALIZE DEBUG ===');
+            logger.debug('GOOGLE_CLIENT_ID being sent to Google:', GOOGLE_CLIENT_ID);
+            logger.debug('Client ID length:', GOOGLE_CLIENT_ID?.length);
+            logger.debug('Client ID type:', typeof GOOGLE_CLIENT_ID);
+            logger.debug('Is valid Client ID?', GOOGLE_CLIENT_ID?.includes('apps.googleusercontent.com'));
+            logger.debug('=== END GOOGLE OAUTH INITIALIZE DEBUG ===');
+
             window.google.accounts.id.initialize({
               client_id: GOOGLE_CLIENT_ID,
               callback: handleGoogleResponse,
