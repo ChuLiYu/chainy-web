@@ -384,6 +384,12 @@ function App() {
         const state = `google_auth_${generateRandomString(16)}`;
         const { verifier, challenge } = await createPkcePair();
         sessionStorage.setItem(`pkce_verifier_${state}`, verifier);
+        
+        logger.debug('PKCE parameters:', {
+          state,
+          verifier: verifier.substring(0, 20) + '...',
+          challenge: challenge.substring(0, 20) + '...'
+        });
 
         const redirectUri = GOOGLE_REDIRECT_URI || window.location.origin;
         const params = new URLSearchParams({
@@ -535,11 +541,11 @@ function App() {
     }
 
     if (code && state && state.startsWith('google_auth')) {
-      logger.debug('OAuth callback detected:', {
-        code: code.substring(0, 20) + '...',
-        state
+      logger.debug('OAuth callback detected:', { 
+        code: code.substring(0, 20) + '...', 
+        state 
       });
-
+      
       const handleOAuthCallback = async () => {
         try {
           setIsLoggingIn(true);
@@ -551,17 +557,21 @@ function App() {
           logger.debug('Code:', code ? code.substring(0, 20) + '...' : 'null');
           logger.debug('State:', state);
           
+          // 獲取 PKCE verifier
+          const pkceVerifier = sessionStorage.getItem(`pkce_verifier_${state}`);
+          logger.debug('PKCE verifier:', pkceVerifier ? pkceVerifier.substring(0, 20) + '...' : 'null');
+          
           const requestBody = {
             googleToken: code,
             provider: 'google',
             tokenType: 'code',
             redirectUri: GOOGLE_REDIRECT_URI,
-            codeVerifier: null // PKCE not implemented yet
+            codeVerifier: pkceVerifier
           };
-          
+
           logger.debug('Request body:', requestBody);
           logger.debug('Request URL:', `${API_ENDPOINT}/auth/google`);
-          
+
           // Exchange code for token via backend
           const response = await fetch(`${API_ENDPOINT}/auth/google`, {
             method: 'POST',
@@ -570,26 +580,29 @@ function App() {
             },
             body: JSON.stringify(requestBody)
           });
-          
+
           logger.debug('Response status:', response.status);
           logger.debug('Response headers:', Object.fromEntries(response.headers.entries()));
-          
+
           if (!response.ok) {
             const errorText = await response.text();
             logger.error('Response error text:', errorText);
             throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
           }
-          
+
           const data = await response.json();
           logger.debug('OAuth success:', data);
-          
+
           // Store user info
           setUser(data.user);
           setIsAuthenticated(true);
           
+          // Clear PKCE verifier from session storage
+          sessionStorage.removeItem(`pkce_verifier_${state}`);
+          
           // Clear URL parameters
           window.history.replaceState({}, document.title, window.location.pathname);
-          
+
         } catch (err) {
           logger.error('OAuth callback error:', err);
           setError('登入失敗: ' + err.message);
