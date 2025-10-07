@@ -351,6 +351,28 @@ function App() {
   useEffect(() => {
     logger.debug('Initializing Google Auth...');
 
+    // 等待 Google Identity Services 腳本加載完成
+    const waitForGoogleScript = () => {
+      return new Promise((resolve) => {
+        if (window.google && window.google.accounts) {
+          resolve();
+        } else {
+          const checkInterval = setInterval(() => {
+            if (window.google && window.google.accounts) {
+              clearInterval(checkInterval);
+              resolve();
+            }
+          }, 100);
+          
+          // 超時保護
+          setTimeout(() => {
+            clearInterval(checkInterval);
+            resolve();
+          }, 5000);
+        }
+      });
+    };
+
     // 創建 Google OAuth HTML 元素
     const createGoogleOAuthElements = () => {
       // 檢查是否已經存在
@@ -383,8 +405,12 @@ function App() {
       logger.debug('Google OAuth elements created');
     };
 
-    createGoogleOAuthElements();
-    setGoogleAuthReady(true);
+    // 等待 Google 腳本加載完成後再創建元素
+    waitForGoogleScript().then(() => {
+      logger.debug('Google Identity Services script loaded');
+      createGoogleOAuthElements();
+      setGoogleAuthReady(true);
+    });
   }, []);
 
   // 檢查是否有來自獨立登入頁面的登入資訊
@@ -711,10 +737,10 @@ function App() {
         code_challenge_method: 'S256'
       });
 
-      logger.debug('Redirecting to Google OAuth', { 
-        redirectUri, 
-        state, 
-        hasChallenge: !!challenge 
+      logger.debug('Redirecting to Google OAuth', {
+        redirectUri,
+        state,
+        hasChallenge: !!challenge
       });
 
       window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
