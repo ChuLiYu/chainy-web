@@ -12,8 +12,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -22,15 +20,12 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        working-directory: ./chainy-web
         run: npm ci
 
       - name: Run lint
-        working-directory: ./chainy-web
         run: npm run lint
 
       - name: Build
-        working-directory: ./chainy-web
         run: npm run build
 
   deploy:
@@ -41,8 +36,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -51,45 +44,43 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        working-directory: ./chainy-web
         run: npm ci
 
       - name: Build
-        working-directory: ./chainy-web
         run: |
           echo "🔧 Building frontend with environment variables..."
-
+          
           # Check if required secrets are available
           if [ -z "${{ secrets.GOOGLE_CLIENT_ID }}" ]; then
             echo "❌ ERROR: GOOGLE_CLIENT_ID secret is not set!"
-            echo "Please add GOOGLE_CLIENT_ID to GitHub Secrets"
+            echo "Please add GOOGLE_CLIENT_ID to GitHub Secrets in chainy-web repository"
             exit 1
           fi
-
+          
           if [ -z "${{ secrets.CHAINY_API_ENDPOINT }}" ]; then
             echo "❌ ERROR: CHAINY_API_ENDPOINT secret is not set!"
-            echo "Please add CHAINY_API_ENDPOINT to GitHub Secrets"
+            echo "Please add CHAINY_API_ENDPOINT to GitHub Secrets in chainy-web repository"
             exit 1
           fi
-
+          
           # Create environment file
           echo "VITE_CHAINY_API=${{ secrets.CHAINY_API_ENDPOINT }}" > .env.production
           echo "VITE_GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}" >> .env.production
           echo "VITE_GOOGLE_REDIRECT_URI=https://chainy.luichu.dev" >> .env.production
           echo "VITE_ENVIRONMENT=production" >> .env.production
-
+          
           echo "📋 Environment variables for production build:"
           echo "VITE_CHAINY_API: ${{ secrets.CHAINY_API_ENDPOINT }}"
           echo "VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}"
           echo "VITE_GOOGLE_REDIRECT_URI: https://chainy.luichu.dev"
           echo "VITE_ENVIRONMENT: production"
-
+          
           echo "📄 Generated .env.production file:"
           cat .env.production
-
+          
           echo "🏗️ Starting build process..."
           npm run build
-
+          
           echo "✅ Build completed successfully"
 
       - name: Configure AWS credentials
@@ -101,7 +92,7 @@ jobs:
 
       - name: Upload to S3
         run: |
-          aws s3 sync chainy-web/dist/ s3://chainy-prod-web --delete
+          aws s3 sync dist/ s3://chainy-prod-web --delete
 
       - name: Invalidate CloudFront
         run: |
