@@ -354,8 +354,11 @@ function App() {
     // 直接執行 OAuth 重定向，不依賴其他函數
     const startOAuthRedirect = async () => {
       try {
+        logger.debug('=== OAUTH REDIRECT DEBUG ===');
         logger.debug('Starting Google OAuth redirect login');
-        logger.debug('GOOGLE_CLIENT_ID', { clientId: GOOGLE_CLIENT_ID });
+        logger.debug('GOOGLE_CLIENT_ID:', GOOGLE_CLIENT_ID);
+        logger.debug('GOOGLE_REDIRECT_URI:', GOOGLE_REDIRECT_URI);
+        logger.debug('Current origin:', window.location.origin);
 
         if (!GOOGLE_CLIENT_ID) {
           throw new Error('Google Client ID not configured');
@@ -395,13 +398,18 @@ function App() {
           code_challenge_method: 'S256'
         });
 
-        logger.debug('Redirecting to Google OAuth', {
-          redirectUri,
+        logger.debug('OAuth parameters:', {
+          client_id: GOOGLE_CLIENT_ID,
+          redirect_uri: redirectUri,
           state,
-          hasChallenge: !!challenge
+          hasChallenge: !!challenge,
+          scope: 'openid email profile'
         });
 
-        window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+        logger.debug('Redirecting to Google OAuth URL:', authUrl);
+
+        window.location.href = authUrl;
       } catch (err) {
         logger.error('Failed to start redirect login:', err);
         setError(err.message || 'Google 登入失敗');
@@ -536,36 +544,52 @@ function App() {
         try {
           setIsLoggingIn(true);
           setError('');
-
+          
+          logger.debug('=== OAUTH CALLBACK DEBUG ===');
+          logger.debug('API_ENDPOINT:', API_ENDPOINT);
+          logger.debug('GOOGLE_REDIRECT_URI:', GOOGLE_REDIRECT_URI);
+          logger.debug('Code:', code ? code.substring(0, 20) + '...' : 'null');
+          logger.debug('State:', state);
+          
+          const requestBody = {
+            googleToken: code,
+            provider: 'google',
+            tokenType: 'code',
+            redirectUri: GOOGLE_REDIRECT_URI,
+            codeVerifier: null // PKCE not implemented yet
+          };
+          
+          logger.debug('Request body:', requestBody);
+          logger.debug('Request URL:', `${API_ENDPOINT}/auth/google`);
+          
           // Exchange code for token via backend
           const response = await fetch(`${API_ENDPOINT}/auth/google`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              googleToken: code,
-              provider: 'google',
-              tokenType: 'code',
-              redirectUri: GOOGLE_REDIRECT_URI,
-              codeVerifier: null // PKCE not implemented yet
-            })
+            body: JSON.stringify(requestBody)
           });
-
+          
+          logger.debug('Response status:', response.status);
+          logger.debug('Response headers:', Object.fromEntries(response.headers.entries()));
+          
           if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            const errorText = await response.text();
+            logger.error('Response error text:', errorText);
+            throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
           }
-
+          
           const data = await response.json();
           logger.debug('OAuth success:', data);
-
+          
           // Store user info
           setUser(data.user);
           setIsAuthenticated(true);
-
+          
           // Clear URL parameters
           window.history.replaceState({}, document.title, window.location.pathname);
-
+          
         } catch (err) {
           logger.error('OAuth callback error:', err);
           setError('登入失敗: ' + err.message);
