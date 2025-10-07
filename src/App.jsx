@@ -423,7 +423,7 @@ function App() {
     };
 
     startOAuthRedirect();
-  }, [GOOGLE_CLIENT_ID, GOOGLE_REDIRECT_URI, logger, setError]);
+  }, [setError]);
 
   // 設置全局Google登錄處理器
   useEffect(() => {
@@ -618,7 +618,7 @@ function App() {
       const cleanUrl = window.location.origin + window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
     }
-  }, [API_ENDPOINT, GOOGLE_REDIRECT_URI, logger, setIsAuthenticated, setIsLoggingIn, setError, setUser]);
+  }, [setIsAuthenticated, setIsLoggingIn, setError, setUser]);
 
   // Pure OAuth 2.0 - no GSI elements needed
 
@@ -741,22 +741,7 @@ function App() {
     setServiceStatus(null);
   };
 
-  const base64UrlEncode = (buffer) => btoa(String.fromCharCode(...new Uint8Array(buffer)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
-  const generateRandomString = (length) => {
-    const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
-    const array = new Uint8Array(length);
-    window.crypto.getRandomValues(array);
-    return Array.from(array, (byte) => charset[byte % charset.length]).join('');
-  };
-
-  const createPkcePair = async () => {
-    const verifier = generateRandomString(128);
-    const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
-    const challenge = base64UrlEncode(digest);
-    return { verifier, challenge };
-  };
 
   // Loading animation component
   const LoadingSpinner = ({ size = 20, color = 'rgba(59, 130, 246, 0.8)' }) => (
