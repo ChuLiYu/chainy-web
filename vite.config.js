@@ -6,6 +6,14 @@ export default defineConfig(({ mode }) => {
   // Load environment variables
   const env = loadEnv(mode, '.', '')
 
+  // Debug: Log loaded environment variables
+  console.log('=== VITE CONFIG DEBUG ===');
+  console.log('Mode:', mode);
+  console.log('VITE_GOOGLE_CLIENT_ID:', env.VITE_GOOGLE_CLIENT_ID);
+  console.log('VITE_CHAINY_API:', env.VITE_CHAINY_API);
+  console.log('VITE_GOOGLE_REDIRECT_URI:', env.VITE_GOOGLE_REDIRECT_URI);
+  console.log('=== END VITE CONFIG DEBUG ===');
+
   return {
     plugins: [react()],
     server: {
