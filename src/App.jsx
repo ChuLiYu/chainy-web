@@ -401,12 +401,16 @@ function App() {
 
   // Initialize Google Auth (只執行一次)
   useEffect(() => {
+    logger.debug('=== GOOGLE OAUTH INITIALIZATION DEBUG ===');
     logger.debug('Initializing Google Auth...');
 
     // 等待 Google Identity Services 腳本加載完成
     const waitForGoogleScript = () => {
       return new Promise((resolve) => {
         logger.debug('Checking Google script availability...');
+        logger.debug('window.google exists:', typeof window.google !== 'undefined');
+        logger.debug('window.google.accounts exists:', typeof window.google?.accounts !== 'undefined');
+        
         if (window.google && window.google.accounts) {
           logger.debug('Google script already available');
           resolve();
@@ -432,14 +436,25 @@ function App() {
 
     // 創建 Google OAuth HTML 元素
     const createGoogleOAuthElements = () => {
+      logger.debug('=== CREATING GOOGLE OAUTH ELEMENTS ===');
       logger.debug('Creating Google OAuth elements...');
+      logger.debug('GOOGLE_CLIENT_ID:', GOOGLE_CLIENT_ID);
+      logger.debug('GOOGLE_CLIENT_ID length:', GOOGLE_CLIENT_ID?.length);
+      logger.debug('GOOGLE_CLIENT_ID type:', typeof GOOGLE_CLIENT_ID);
+      
       // 檢查是否已經存在
-      if (document.getElementById('g_id_onload') || document.querySelector('.g_id_signin')) {
-        logger.debug('Google OAuth elements already exist');
+      const existingOnload = document.getElementById('g_id_onload');
+      const existingSignin = document.querySelector('.g_id_signin');
+      logger.debug('Existing g_id_onload element:', !!existingOnload);
+      logger.debug('Existing g_id_signin element:', !!existingSignin);
+      
+      if (existingOnload || existingSignin) {
+        logger.debug('Google OAuth elements already exist, skipping creation');
         return;
       }
 
       // 創建 g_id_onload 元素
+      logger.debug('Creating g_id_onload element...');
       const onloadDiv = document.createElement('div');
       onloadDiv.id = 'g_id_onload';
       onloadDiv.setAttribute('data-client-id', GOOGLE_CLIENT_ID);
@@ -447,8 +462,10 @@ function App() {
       onloadDiv.setAttribute('data-auto-prompt', 'false');
       onloadDiv.style.display = 'none';
       document.body.appendChild(onloadDiv);
+      logger.debug('g_id_onload element created and appended to body');
 
       // 創建 g_id_signin 元素
+      logger.debug('Creating g_id_signin element...');
       const signinDiv = document.createElement('div');
       signinDiv.className = 'g_id_signin';
       signinDiv.setAttribute('data-type', 'standard');
@@ -459,16 +476,23 @@ function App() {
       signinDiv.setAttribute('data-logo-alignment', 'left');
       signinDiv.style.display = 'none';
       document.body.appendChild(signinDiv);
+      logger.debug('g_id_signin element created and appended to body');
 
       logger.debug('Google OAuth elements created successfully');
+      logger.debug('=== END CREATING GOOGLE OAUTH ELEMENTS ===');
     };
 
     // 等待 Google 腳本加載完成後再創建元素
     waitForGoogleScript().then(() => {
+      logger.debug('=== GOOGLE SCRIPT LOADED, CREATING ELEMENTS ===');
       logger.debug('Google Identity Services script loaded, creating elements...');
+      logger.debug('Current window.location.origin:', window.location.origin);
+      logger.debug('Current window.location.href:', window.location.href);
+      
       createGoogleOAuthElements();
       logger.debug('Setting googleAuthReady to true');
       setGoogleAuthReady(true);
+      logger.debug('=== END GOOGLE SCRIPT LOADED ===');
     });
   }, []);
 
@@ -564,6 +588,9 @@ function App() {
             logger.debug('Client ID length:', GOOGLE_CLIENT_ID?.length);
             logger.debug('Client ID type:', typeof GOOGLE_CLIENT_ID);
             logger.debug('Is valid Client ID?', GOOGLE_CLIENT_ID?.includes('apps.googleusercontent.com'));
+            logger.debug('Current origin:', window.location.origin);
+            logger.debug('Current href:', window.location.href);
+            logger.debug('Document referrer:', document.referrer);
             logger.debug('=== END GOOGLE OAUTH INITIALIZE DEBUG ===');
 
             window.google.accounts.id.initialize({
@@ -572,6 +599,7 @@ function App() {
               auto_select: false,
               cancel_on_tap_outside: true
             });
+            logger.debug('Google OAuth initialize() called successfully');
 
             // 觸發按鈕渲染
             window.google.accounts.id.renderButton(signinElement, {
@@ -582,6 +610,7 @@ function App() {
               width: 300,
               logo_alignment: 'left'
             });
+            logger.debug('Google OAuth renderButton() called successfully');
 
             logger.debug('Google button re-rendered successfully');
           } catch (error) {
