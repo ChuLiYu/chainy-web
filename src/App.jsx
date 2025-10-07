@@ -7,8 +7,32 @@ console.log('App component is loading...');
 
 // Google OAuth configuration
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? 'YOUR_GOOGLE_CLIENT_ID_HERE';
-const GOOGLE_REDIRECT_URI = import.meta.env.VITE_GOOGLE_REDIRECT_URI ?? 'http://localhost:3000';
 const API_ENDPOINT = import.meta.env.VITE_CHAINY_API ?? 'https://9qwxcajqf9.execute-api.ap-northeast-1.amazonaws.com';
+
+// 安全的重定向 URI 選擇函數
+function getSecureRedirectUri() {
+  // 1. 優先使用環境變數
+  if (import.meta.env.VITE_GOOGLE_REDIRECT_URI) {
+    console.log('Using environment redirect URI:', import.meta.env.VITE_GOOGLE_REDIRECT_URI);
+    return import.meta.env.VITE_GOOGLE_REDIRECT_URI;
+  }
+  
+  // 2. 根據當前域名自動選擇
+  const currentOrigin = window.location.origin;
+  if (currentOrigin === 'https://chainy.luichu.dev') {
+    console.log('Using production redirect URI based on origin:', currentOrigin);
+    return 'https://chainy.luichu.dev';
+  } else if (currentOrigin === 'http://localhost:3000' || currentOrigin === 'http://127.0.0.1:3000') {
+    console.log('Using local development redirect URI based on origin:', currentOrigin);
+    return 'http://localhost:3000';
+  }
+  
+  // 3. 默認使用本地開發
+  console.log('Using default local development redirect URI');
+  return 'http://localhost:3000';
+}
+
+const GOOGLE_REDIRECT_URI = getSecureRedirectUri();
 
 function App() {
   console.log('App function is executing...');
