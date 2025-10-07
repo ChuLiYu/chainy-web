@@ -46,7 +46,8 @@ function App() {
               googleToken: code,
               provider: 'google',
               tokenType: 'code',
-              redirectUri: GOOGLE_REDIRECT_URI
+              redirectUri: GOOGLE_REDIRECT_URI,
+              codeVerifier: null // PKCE not implemented yet
             })
           });
 
