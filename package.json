@@ -9,7 +9,7 @@
     "url": "https://github.com/ChuLiYu/chainy-web.git"
   },
   "scripts": {
-    "dev": "VITE_GOOGLE_CLIENT_ID=1079648073253-kueo7mpri415h10dsc0fldeoecp878l6.apps.googleusercontent.com VITE_GOOGLE_REDIRECT_URI=http://localhost:3000 VITE_CHAINY_API=https://9qwxcajqf9.execute-api.ap-northeast-1.amazonaws.com VITE_ENVIRONMENT=development vite --port 3000 --host",
+    "dev": "cross-env VITE_GOOGLE_CLIENT_ID=1079648073253-kueo7mpri415h10dsc0fldeoecp878l6.apps.googleusercontent.com VITE_GOOGLE_REDIRECT_URI=http://localhost:3000 VITE_CHAINY_API=https://9qwxcajqf9.execute-api.ap-northeast-1.amazonaws.com VITE_ENVIRONMENT=development vite --port 3000 --host",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -26,6 +26,7 @@
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.3",
+    "cross-env": "^10.1.0",
     "eslint": "^9.36.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
