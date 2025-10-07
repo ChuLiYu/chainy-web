@@ -348,10 +348,10 @@ function App() {
     }
   }, [fetchLinksList, t.googleLoginFailed, t.jwtMissing]);
 
-  const handleGoogleResponse = useCallback(() => {
-    logger.debug('Google login button clicked - redirecting to OAuth 2.0 flow');
-    handleRedirectLogin();
-  }, [handleRedirectLogin]);
+  const handleGoogleResponse = useCallback((response) => {
+    logger.debug('Google login response', { response });
+    handleGoogleLogin(response);
+  }, [handleGoogleLogin]);
 
   // 設置全局Google登錄處理器
   useEffect(() => {
@@ -400,17 +400,101 @@ function App() {
     checkAuthStatus();
   }, []);
 
-  // Pure OAuth 2.0 implementation - no GSI needed
+  // Initialize Google Auth (只執行一次)
   useEffect(() => {
-    logger.debug('=== PURE OAUTH 2.0 INITIALIZATION ===');
-    logger.debug('Initializing pure OAuth 2.0 flow...');
-    logger.debug('GOOGLE_CLIENT_ID:', GOOGLE_CLIENT_ID);
-    logger.debug('GOOGLE_REDIRECT_URI:', GOOGLE_REDIRECT_URI);
-    logger.debug('Current origin:', window.location.origin);
-    
-    // Set googleAuthReady immediately since we don't need to wait for GSI script
-    setGoogleAuthReady(true);
-    logger.debug('Pure OAuth 2.0 ready');
+    logger.debug('=== GOOGLE OAUTH INITIALIZATION DEBUG ===');
+    logger.debug('Initializing Google Auth...');
+
+    // 等待 Google Identity Services 腳本加載完成
+    const waitForGoogleScript = () => {
+      return new Promise((resolve) => {
+        logger.debug('Checking Google script availability...');
+        logger.debug('window.google exists:', typeof window.google !== 'undefined');
+        logger.debug('window.google.accounts exists:', typeof window.google?.accounts !== 'undefined');
+
+        if (window.google && window.google.accounts) {
+          logger.debug('Google script already available');
+          resolve();
+        } else {
+          logger.debug('Google script not available, waiting...');
+          const checkInterval = setInterval(() => {
+            if (window.google && window.google.accounts) {
+              logger.debug('Google script loaded successfully');
+              clearInterval(checkInterval);
+              resolve();
+            }
+          }, 100);
+
+          // 超時保護
+          setTimeout(() => {
+            logger.debug('Google script loading timeout');
+            clearInterval(checkInterval);
+            resolve();
+          }, 5000);
+        }
+      });
+    };
+
+    // 創建 Google OAuth HTML 元素
+    const createGoogleOAuthElements = () => {
+      logger.debug('=== CREATING GOOGLE OAUTH ELEMENTS ===');
+      logger.debug('Creating Google OAuth elements...');
+      logger.debug('GOOGLE_CLIENT_ID:', GOOGLE_CLIENT_ID);
+      logger.debug('GOOGLE_CLIENT_ID length:', GOOGLE_CLIENT_ID?.length);
+      logger.debug('GOOGLE_CLIENT_ID type:', typeof GOOGLE_CLIENT_ID);
+
+      // 檢查是否已經存在
+      const existingOnload = document.getElementById('g_id_onload');
+      const existingSignin = document.querySelector('.g_id_signin');
+      logger.debug('Existing g_id_onload element:', !!existingOnload);
+      logger.debug('Existing g_id_signin element:', !!existingSignin);
+
+      if (existingOnload || existingSignin) {
+        logger.debug('Google OAuth elements already exist, skipping creation');
+        return;
+      }
+
+      // 創建 g_id_onload 元素
+      logger.debug('Creating g_id_onload element...');
+      const onloadDiv = document.createElement('div');
+      onloadDiv.id = 'g_id_onload';
+      onloadDiv.setAttribute('data-client-id', GOOGLE_CLIENT_ID);
+      onloadDiv.setAttribute('data-callback', 'handleGoogleResponse');
+      onloadDiv.setAttribute('data-auto-prompt', 'false');
+      onloadDiv.style.display = 'none';
+      document.body.appendChild(onloadDiv);
+      logger.debug('g_id_onload element created and appended to body');
+
+      // 創建 g_id_signin 元素
+      logger.debug('Creating g_id_signin element...');
+      const signinDiv = document.createElement('div');
+      signinDiv.className = 'g_id_signin';
+      signinDiv.setAttribute('data-type', 'standard');
+      signinDiv.setAttribute('data-size', 'large');
+      signinDiv.setAttribute('data-theme', 'outline');
+      signinDiv.setAttribute('data-text', 'sign_in_with');
+      signinDiv.setAttribute('data-shape', 'rectangular');
+      signinDiv.setAttribute('data-logo-alignment', 'left');
+      signinDiv.style.display = 'none';
+      document.body.appendChild(signinDiv);
+      logger.debug('g_id_signin element created and appended to body');
+
+      logger.debug('Google OAuth elements created successfully');
+      logger.debug('=== END CREATING GOOGLE OAUTH ELEMENTS ===');
+    };
+
+    // 等待 Google 腳本加載完成後再創建元素
+    waitForGoogleScript().then(() => {
+      logger.debug('=== GOOGLE SCRIPT LOADED, CREATING ELEMENTS ===');
+      logger.debug('Google Identity Services script loaded, creating elements...');
+      logger.debug('Current window.location.origin:', window.location.origin);
+      logger.debug('Current window.location.href:', window.location.href);
+
+      createGoogleOAuthElements();
+      logger.debug('Setting googleAuthReady to true');
+      setGoogleAuthReady(true);
+      logger.debug('=== END GOOGLE SCRIPT LOADED ===');
+    });
   }, []);
 
   // 檢查是否有來自獨立登入頁面的登入資訊
@@ -479,72 +563,121 @@ function App() {
     }
   }, [handleGoogleLogin]);
 
-  // Pure OAuth 2.0 - no GSI elements needed
-
-  // Pure OAuth 2.0 callback handling
+  // 當 googleAuthReady 變為 true 時，確保 Google 標籤被正確處理
   useEffect(() => {
-    const handleOAuthCallback = async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code');
-      const state = urlParams.get('state');
-      const error = urlParams.get('error');
-      
-      if (error) {
-        logger.error('OAuth error:', error);
-        setError(`登入失敗: ${error}`);
-        return;
-      }
-      
-      if (code && state && state.startsWith('google_auth_')) {
-        logger.debug('OAuth callback detected:', { 
-          code: code.substring(0, 20) + '...', 
-          state 
-        });
-        
-        try {
-          setIsLoggingIn(true);
-          setError('');
-          
-          // Exchange code for token via backend
-          const response = await fetch(`${API_ENDPOINT}/auth/google`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              googleToken: code,
-              provider: 'google',
-              tokenType: 'code',
-              redirectUri: GOOGLE_REDIRECT_URI,
-              codeVerifier: null // PKCE not implemented yet
-            })
-          });
-          
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    if (googleAuthReady && !isAuthenticated) {
+      logger.debug('Google Auth ready, checking for HTML tags...');
+
+      // 檢查是否有 g_id_onload 元素
+      const onloadElement = document.getElementById('g_id_onload');
+      logger.debug('g_id_onload element', { element: onloadElement });
+
+      // 檢查是否有 g_id_signin 元素
+      const signinElement = document.querySelector('.g_id_signin');
+      logger.debug('g_id_signin element', { element: signinElement });
+
+      // 如果元素存在但沒有內容，嘗試重新初始化
+      if (onloadElement && signinElement && !signinElement.innerHTML.trim()) {
+        logger.debug('HTML tags found but empty, reinitializing...');
+
+        // 觸發 Google 腳本重新處理標籤
+        if (window.google && window.google.accounts) {
+          try {
+            // 重新初始化 - 使用 OAuth 2.0 重定向流程而不是 GSI
+            logger.debug('=== GOOGLE OAUTH INITIALIZE DEBUG ===');
+            logger.debug('GOOGLE_CLIENT_ID being sent to Google:', GOOGLE_CLIENT_ID);
+            logger.debug('Client ID length:', GOOGLE_CLIENT_ID?.length);
+            logger.debug('Client ID type:', typeof GOOGLE_CLIENT_ID);
+            logger.debug('Is valid Client ID?', GOOGLE_CLIENT_ID?.includes('apps.googleusercontent.com'));
+            logger.debug('Current origin:', window.location.origin);
+            logger.debug('Current href:', window.location.href);
+            logger.debug('Document referrer:', document.referrer);
+            logger.debug('=== END GOOGLE OAUTH INITIALIZE DEBUG ===');
+
+            // 不使用 GSI initialize，而是直接使用重定向流程
+            logger.debug('Skipping GSI initialize, using redirect flow instead');
+            
+            // 創建一個簡單的按鈕而不是使用 GSI renderButton
+            signinElement.innerHTML = `
+              <button onclick="window.handleRedirectLogin()" style="
+                background: #4285f4;
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 4px;
+                font-size: 16px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+              ">
+                <svg width="20" height="20" viewBox="0 0 24 24">
+                  <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                  <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                Sign in with Google
+              </button>
+            `;
+            
+            logger.debug('Custom Google button created successfully');
+          } catch (error) {
+            logger.error('Failed to re-render Google button:', error);
           }
-          
-          const data = await response.json();
-          logger.debug('OAuth success:', data);
-          
-          // Store user info
-          setUser(data.user);
-          setIsAuthenticated(true);
-          
-          // Clear URL parameters
-          window.history.replaceState({}, document.title, window.location.pathname);
-          
-        } catch (err) {
-          logger.error('OAuth callback error:', err);
-          setError('登入失敗: ' + err.message);
-        } finally {
-          setIsLoggingIn(false);
         }
       }
+    }
+  }, [googleAuthReady, isAuthenticated, handleGoogleResponse]);
+
+  // 檢查是否有Google OAuth code需要處理
+  useEffect(() => {
+    const handleGoogleCallback = () => {
+      const code = localStorage.getItem('google_auth_code');
+      const state = localStorage.getItem('google_auth_state');
+      const timestamp = localStorage.getItem('google_auth_timestamp');
+
+      if (code && state === 'google_auth' && timestamp) {
+        // 檢查code是否在5分鐘內獲取（避免重複處理）
+        const codeAge = Date.now() - parseInt(timestamp);
+        if (codeAge < 300000) { // 5分鐘
+          logger.debug('Processing Google OAuth code from callback');
+
+          // 清除localStorage中的code
+          localStorage.removeItem('google_auth_code');
+          localStorage.removeItem('google_auth_state');
+          localStorage.removeItem('google_auth_timestamp');
+
+          // 處理Google登錄
+          handleGoogleLogin({ credential: code });
+        }
+      }
+
+      // 檢查是否有錯誤
+      const error = localStorage.getItem('google_auth_error');
+      if (error) {
+        logger.error('Google auth error from callback:', error);
+        localStorage.removeItem('google_auth_error');
+        // 可以在這裡顯示錯誤提示
+      }
     };
-    
-    handleOAuthCallback();
-  }, [API_ENDPOINT, GOOGLE_REDIRECT_URI, logger, setIsAuthenticated, setIsLoggingIn, setError, setUser]);
+
+    // 頁面載入時檢查
+    handleGoogleCallback();
+
+    // 監聽storage變化（當回調頁面設置code時）
+    const handleStorageChange = (e) => {
+      if (e.key === 'google_auth_code') {
+        handleGoogleCallback();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [handleGoogleLogin]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
