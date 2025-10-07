@@ -363,7 +363,7 @@ function App() {
               resolve();
             }
           }, 100);
-          
+
           // 超時保護
           setTimeout(() => {
             clearInterval(checkInterval);
@@ -1750,6 +1750,7 @@ function App() {
           </form>
 
           {/* Google登錄按鈕 - 只在未登入時顯示，放在下方 */}
+          {console.log('Google button render check:', { isAuthenticated, googleAuthReady, shouldShow: !isAuthenticated && googleAuthReady })}
           {!isAuthenticated && googleAuthReady && (
             <div
               style={{
