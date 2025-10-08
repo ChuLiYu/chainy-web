@@ -19,18 +19,56 @@ import { ServiceStatusDisplay, ServiceStatusBanner } from './components/ServiceS
 const logger = createLogger('App');
 
 // Debug: Test if App component is loading
-console.log('App component is loading...');
+logger.debug('App component is loading...');
 
 // Debug: Test basic rendering
-console.log('About to render App component');
+logger.debug('About to render App component');
 import {
   authenticateWithGoogle
 } from './utils/googleAuth.js';
 
-const API_ENDPOINT = import.meta.env.VITE_CHAINY_API ?? 'https://your-api-gateway-url.amazonaws.com';
-const GOOGLE_REDIRECT_URI = import.meta.env.VITE_GOOGLE_REDIRECT_URI;
+const API_ENDPOINT = import.meta.env.VITE_CHAINY_API ?? 'https://9qwxcajqf9.execute-api.ap-northeast-1.amazonaws.com';
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? 'YOUR_GOOGLE_CLIENT_ID_HERE';
+
+// 調試：檢查環境變數載入
+logger.debug('=== ENVIRONMENT VARIABLES DEBUG ===');
+logger.debug('VITE_GOOGLE_CLIENT_ID:', import.meta.env.VITE_GOOGLE_CLIENT_ID);
+logger.debug('VITE_CHAINY_API:', import.meta.env.VITE_CHAINY_API);
+logger.debug('VITE_GOOGLE_REDIRECT_URI:', import.meta.env.VITE_GOOGLE_REDIRECT_URI);
+logger.debug('GOOGLE_CLIENT_ID (resolved):', GOOGLE_CLIENT_ID);
+logger.debug('All import.meta.env:', import.meta.env);
+logger.debug('=== END DEBUG ===');
 const PKCE_VERIFIER_PREFIX = 'google_pkce_verifier';
+
+// 安全的重定向 URI 選擇函數
+function getSecureRedirectUri() {
+  logger.debug('=== REDIRECT URI DEBUG ===');
+  logger.debug('Current origin:', window.location.origin);
+  logger.debug('VITE_GOOGLE_REDIRECT_URI:', import.meta.env.VITE_GOOGLE_REDIRECT_URI);
+
+  // 1. 優先使用環境變數
+  if (import.meta.env.VITE_GOOGLE_REDIRECT_URI) {
+    logger.debug('Using environment variable redirect URI:', import.meta.env.VITE_GOOGLE_REDIRECT_URI);
+    return import.meta.env.VITE_GOOGLE_REDIRECT_URI;
+  }
+
+  // 2. 根據當前域名自動選擇
+  const currentOrigin = window.location.origin;
+  if (currentOrigin === 'https://chainy.luichu.dev') {
+    logger.debug('Using production redirect URI:', 'https://chainy.luichu.dev');
+    return 'https://chainy.luichu.dev';
+  } else if (currentOrigin === 'http://localhost:3000' || currentOrigin === 'http://127.0.0.1:3000') {
+    logger.debug('Using local development redirect URI:', 'http://localhost:3000');
+    return 'http://localhost:3000';
+  }
+
+  // 3. 默認使用當前域名
+  logger.debug('Using current origin as redirect URI:', currentOrigin);
+  logger.debug('=== END REDIRECT URI DEBUG ===');
+  return currentOrigin;
+}
+
+const GOOGLE_REDIRECT_URI = getSecureRedirectUri();
 
 // Language translations
 const translations = {
@@ -310,10 +348,82 @@ function App() {
     }
   }, [fetchLinksList, t.googleLoginFailed, t.jwtMissing]);
 
-  const handleGoogleResponse = useCallback((response) => {
-    logger.debug('Google login response', { response });
-    handleGoogleLogin(response);
-  }, [handleGoogleLogin]);
+  const handleGoogleResponse = useCallback(() => {
+    logger.debug('Google login button clicked - redirecting to OAuth 2.0 flow');
+
+    // 直接執行 OAuth 重定向，不依賴其他函數
+    const startOAuthRedirect = async () => {
+      try {
+        logger.debug('=== OAUTH REDIRECT DEBUG ===');
+        logger.debug('Starting Google OAuth redirect login');
+        logger.debug('GOOGLE_CLIENT_ID:', GOOGLE_CLIENT_ID);
+        logger.debug('GOOGLE_REDIRECT_URI:', GOOGLE_REDIRECT_URI);
+        logger.debug('Current origin:', window.location.origin);
+
+        if (!GOOGLE_CLIENT_ID) {
+          throw new Error('Google Client ID not configured');
+        }
+
+        const generateRandomString = (length) => {
+          const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+          const array = new Uint8Array(length);
+          window.crypto.getRandomValues(array);
+          return Array.from(array, (byte) => charset[byte % charset.length]).join('');
+        };
+
+        const base64UrlEncode = (buffer) => btoa(String.fromCharCode(...new Uint8Array(buffer)))
+          .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+        const createPkcePair = async () => {
+          const verifier = generateRandomString(128);
+          const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+          const challenge = base64UrlEncode(digest);
+          return { verifier, challenge };
+        };
+
+        const state = `google_auth_${generateRandomString(16)}`;
+        const { verifier, challenge } = await createPkcePair();
+        sessionStorage.setItem(`pkce_verifier_${state}`, verifier);
+
+        logger.debug('PKCE parameters:', {
+          state,
+          verifier: verifier.substring(0, 20) + '...',
+          challenge: challenge.substring(0, 20) + '...'
+        });
+
+        const redirectUri = GOOGLE_REDIRECT_URI || window.location.origin;
+        const params = new URLSearchParams({
+          client_id: GOOGLE_CLIENT_ID,
+          redirect_uri: redirectUri,
+          response_type: 'code',
+          scope: 'openid email profile',
+          include_granted_scopes: 'true',
+          access_type: 'offline',
+          state,
+          code_challenge: challenge,
+          code_challenge_method: 'S256'
+        });
+
+        logger.debug('OAuth parameters:', {
+          client_id: GOOGLE_CLIENT_ID,
+          redirect_uri: redirectUri,
+          state,
+          hasChallenge: !!challenge,
+          scope: 'openid email profile'
+        });
+
+        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+        logger.debug('Redirecting to Google OAuth URL:', authUrl);
+
+        window.location.href = authUrl;
+      } catch (err) {
+        logger.error('Failed to start redirect login:', err);
+        setError(err.message || 'Google 登入失敗');
+      }
+    };
+
+    startOAuthRedirect();
+  }, [setError]);
 
   // 設置全局Google登錄處理器
   useEffect(() => {
@@ -325,6 +435,14 @@ function App() {
     const urlPattern = /^https?:\/\/.+/;
     setIsValidUrl(urlPattern.test(url));
   }, [url]);
+
+  // 監聽登入狀態變化，載入短網址列表
+  useEffect(() => {
+    if (isAuthenticated) {
+      logger.debug('User authenticated, fetching links list');
+      fetchLinksList();
+    }
+  }, [isAuthenticated, fetchLinksList]);
 
   useEffect(() => {
     // 驗證自訂代號：只允許字母、數字、連字符、底線，長度4-32字符
@@ -353,80 +471,17 @@ function App() {
     checkAuthStatus();
   }, []);
 
-  // Initialize Google Auth (只執行一次)
+  // Pure OAuth 2.0 implementation - no GSI needed
   useEffect(() => {
-    logger.debug('Initializing Google Auth...');
+    logger.debug('=== PURE OAUTH 2.0 INITIALIZATION ===');
+    logger.debug('Initializing pure OAuth 2.0 flow...');
+    logger.debug('GOOGLE_CLIENT_ID:', GOOGLE_CLIENT_ID);
+    logger.debug('GOOGLE_REDIRECT_URI:', GOOGLE_REDIRECT_URI);
+    logger.debug('Current origin:', window.location.origin);
 
-    // 等待 Google Identity Services 腳本加載完成
-    const waitForGoogleScript = () => {
-      return new Promise((resolve) => {
-        console.log('Checking Google script availability...');
-        if (window.google && window.google.accounts) {
-          console.log('Google script already available');
-          resolve();
-        } else {
-          console.log('Google script not available, waiting...');
-          const checkInterval = setInterval(() => {
-            if (window.google && window.google.accounts) {
-              console.log('Google script loaded successfully');
-              clearInterval(checkInterval);
-              resolve();
-            }
-          }, 100);
-
-          // 超時保護
-          setTimeout(() => {
-            console.log('Google script loading timeout');
-            clearInterval(checkInterval);
-            resolve();
-          }, 5000);
-        }
-      });
-    };
-
-    // 創建 Google OAuth HTML 元素
-    const createGoogleOAuthElements = () => {
-      console.log('Creating Google OAuth elements...');
-      // 檢查是否已經存在
-      if (document.getElementById('g_id_onload') || document.querySelector('.g_id_signin')) {
-        console.log('Google OAuth elements already exist');
-        logger.debug('Google OAuth elements already exist');
-        return;
-      }
-
-      // 創建 g_id_onload 元素
-      const onloadDiv = document.createElement('div');
-      onloadDiv.id = 'g_id_onload';
-      onloadDiv.setAttribute('data-client-id', GOOGLE_CLIENT_ID);
-      onloadDiv.setAttribute('data-callback', 'handleGoogleResponse');
-      onloadDiv.setAttribute('data-auto-prompt', 'false');
-      onloadDiv.style.display = 'none';
-      document.body.appendChild(onloadDiv);
-
-      // 創建 g_id_signin 元素
-      const signinDiv = document.createElement('div');
-      signinDiv.className = 'g_id_signin';
-      signinDiv.setAttribute('data-type', 'standard');
-      signinDiv.setAttribute('data-size', 'large');
-      signinDiv.setAttribute('data-theme', 'outline');
-      signinDiv.setAttribute('data-text', 'sign_in_with');
-      signinDiv.setAttribute('data-shape', 'rectangular');
-      signinDiv.setAttribute('data-logo-alignment', 'left');
-      signinDiv.style.display = 'none';
-      document.body.appendChild(signinDiv);
-
-      console.log('Google OAuth elements created successfully');
-      logger.debug('Google OAuth elements created');
-    };
-
-    // 等待 Google 腳本加載完成後再創建元素
-    waitForGoogleScript().then(() => {
-      console.log('Google Identity Services script loaded, creating elements...');
-      logger.debug('Google Identity Services script loaded');
-      createGoogleOAuthElements();
-      console.log('Setting googleAuthReady to true');
-      setGoogleAuthReady(true);
-    });
+    // Set googleAuthReady immediately since we don't need to wait for GSI script
+    setGoogleAuthReady(true);
+    logger.debug('Pure OAuth 2.0 ready');
   }, []);
 
   // 檢查是否有來自獨立登入頁面的登入資訊
@@ -477,119 +532,95 @@ function App() {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     const state = params.get('state');
+    const error = params.get('error');
+
+    if (error) {
+      logger.error('OAuth error:', error);
+      setError(`登入失敗: ${error}`);
+      return;
+    }
 
     if (code && state && state.startsWith('google_auth')) {
-      const storageSnapshot = {};
-      for (let i = 0; i < sessionStorage.length; i += 1) {
-        const key = sessionStorage.key(i);
-        if (key) {
-          storageSnapshot[key] = sessionStorage.getItem(key);
-        }
-      }
-      logger.debug('Session storage snapshot on redirect', { storageSnapshot });
+      logger.debug('OAuth callback detected:', {
+        code: code.substring(0, 20) + '...',
+        state
+      });
 
-      handleGoogleLogin({ credential: code, tokenType: 'code', state });
+      const handleOAuthCallback = async () => {
+        try {
+          setIsLoggingIn(true);
+          setError('');
+
+          logger.debug('=== OAUTH CALLBACK DEBUG ===');
+          logger.debug('API_ENDPOINT:', API_ENDPOINT);
+          logger.debug('GOOGLE_REDIRECT_URI:', GOOGLE_REDIRECT_URI);
+          logger.debug('Code:', code ? code.substring(0, 20) + '...' : 'null');
+          logger.debug('State:', state);
+
+          // 獲取 PKCE verifier
+          const pkceVerifier = sessionStorage.getItem(`pkce_verifier_${state}`);
+          logger.debug('PKCE verifier:', pkceVerifier ? pkceVerifier.substring(0, 20) + '...' : 'null');
+
+          const requestBody = {
+            googleToken: code,
+            provider: 'google',
+            tokenType: 'code',
+            redirectUri: GOOGLE_REDIRECT_URI,
+            codeVerifier: pkceVerifier
+          };
+
+          logger.debug('Request body:', requestBody);
+          logger.debug('Request URL:', `${API_ENDPOINT}/auth/google`);
+
+          // Exchange code for token via backend
+          const response = await fetch(`${API_ENDPOINT}/auth/google`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody)
+          });
+
+          logger.debug('Response status:', response.status);
+          logger.debug('Response headers:', Object.fromEntries(response.headers.entries()));
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            logger.error('Response error text:', errorText);
+            throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+          }
+
+          const data = await response.json();
+          logger.debug('OAuth success:', data);
+
+          // Store user info and JWT token
+          localStorage.setItem('chainy_jwt_token', data.jwt);
+          localStorage.setItem('chainy_user_profile', JSON.stringify(data.user));
+          setUser(data.user);
+          setIsAuthenticated(true);
+
+          // Clear PKCE verifier from session storage
+          sessionStorage.removeItem(`pkce_verifier_${state}`);
+
+          // Clear URL parameters
+          window.history.replaceState({}, document.title, window.location.pathname);
+
+        } catch (err) {
+          logger.error('OAuth callback error:', err);
+          setError('登入失敗: ' + err.message);
+        } finally {
+          setIsLoggingIn(false);
+        }
+      };
+
+      handleOAuthCallback();
 
       const cleanUrl = window.location.origin + window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
     }
-  }, [handleGoogleLogin]);
+  }, [setIsAuthenticated, setIsLoggingIn, setError, setUser]);
 
-  // 當 googleAuthReady 變為 true 時，確保 Google 標籤被正確處理
-  useEffect(() => {
-    if (googleAuthReady && !isAuthenticated) {
-      logger.debug('Google Auth ready, checking for HTML tags...');
-
-      // 檢查是否有 g_id_onload 元素
-      const onloadElement = document.getElementById('g_id_onload');
-      logger.debug('g_id_onload element', { element: onloadElement });
-
-      // 檢查是否有 g_id_signin 元素
-      const signinElement = document.querySelector('.g_id_signin');
-      logger.debug('g_id_signin element', { element: signinElement });
-
-      // 如果元素存在但沒有內容，嘗試重新初始化
-      if (onloadElement && signinElement && !signinElement.innerHTML.trim()) {
-        logger.debug('HTML tags found but empty, reinitializing...');
-
-        // 觸發 Google 腳本重新處理標籤
-        if (window.google && window.google.accounts) {
-          try {
-            // 重新初始化
-            window.google.accounts.id.initialize({
-              client_id: GOOGLE_CLIENT_ID,
-              callback: handleGoogleResponse,
-              auto_select: false,
-              cancel_on_tap_outside: true
-            });
-
-            // 觸發按鈕渲染
-            window.google.accounts.id.renderButton(signinElement, {
-              theme: 'outline',
-              size: 'large',
-              text: 'signin_with',
-              shape: 'rectangular',
-              width: 300,
-              logo_alignment: 'left'
-            });
-
-            logger.debug('Google button re-rendered successfully');
-          } catch (error) {
-            logger.error('Failed to re-render Google button:', error);
-          }
-        }
-      }
-    }
-  }, [googleAuthReady, isAuthenticated, handleGoogleResponse]);
-
-  // 檢查是否有Google OAuth code需要處理
-  useEffect(() => {
-    const handleGoogleCallback = () => {
-      const code = localStorage.getItem('google_auth_code');
-      const state = localStorage.getItem('google_auth_state');
-      const timestamp = localStorage.getItem('google_auth_timestamp');
-
-      if (code && state === 'google_auth' && timestamp) {
-        // 檢查code是否在5分鐘內獲取（避免重複處理）
-        const codeAge = Date.now() - parseInt(timestamp);
-        if (codeAge < 300000) { // 5分鐘
-          logger.debug('Processing Google OAuth code from callback');
-
-          // 清除localStorage中的code
-          localStorage.removeItem('google_auth_code');
-          localStorage.removeItem('google_auth_state');
-          localStorage.removeItem('google_auth_timestamp');
-
-          // 處理Google登錄
-          handleGoogleLogin({ credential: code });
-        }
-      }
-
-      // 檢查是否有錯誤
-      const error = localStorage.getItem('google_auth_error');
-      if (error) {
-        logger.error('Google auth error from callback:', error);
-        localStorage.removeItem('google_auth_error');
-        // 可以在這裡顯示錯誤提示
-      }
-    };
-
-    // 頁面載入時檢查
-    handleGoogleCallback();
-
-    // 監聽storage變化（當回調頁面設置code時）
-    const handleStorageChange = (e) => {
-      if (e.key === 'google_auth_code') {
-        handleGoogleCallback();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, [handleGoogleLogin]);
+  // Pure OAuth 2.0 - no GSI elements needed
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -710,61 +741,7 @@ function App() {
     setServiceStatus(null);
   };
 
-  const base64UrlEncode = (buffer) => btoa(String.fromCharCode(...new Uint8Array(buffer)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
-  const generateRandomString = (length) => {
-    const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
-    const array = new Uint8Array(length);
-    window.crypto.getRandomValues(array);
-    return Array.from(array, (byte) => charset[byte % charset.length]).join('');
-  };
-
-  const createPkcePair = async () => {
-    const verifier = generateRandomString(128);
-    const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
-    const challenge = base64UrlEncode(digest);
-    return { verifier, challenge };
-  };
-
-  const handleRedirectLogin = async () => {
-    try {
-      logger.debug('Starting Google OAuth redirect login');
-      logger.debug('GOOGLE_CLIENT_ID', { clientId: GOOGLE_CLIENT_ID });
-
-      if (!GOOGLE_CLIENT_ID) {
-        throw new Error('Google Client ID not configured');
-      }
-
-      const state = `google_auth_${generateRandomString(16)}`;
-      const { verifier, challenge } = await createPkcePair();
-      sessionStorage.setItem(`${PKCE_VERIFIER_PREFIX}_${state}`, verifier);
-
-      const redirectUri = GOOGLE_REDIRECT_URI || window.location.origin;
-      const params = new URLSearchParams({
-        client_id: GOOGLE_CLIENT_ID,
-        redirect_uri: redirectUri,
-        response_type: 'code',
-        scope: 'openid email profile',
-        include_granted_scopes: 'true',
-        access_type: 'offline',
-        state,
-        code_challenge: challenge,
-        code_challenge_method: 'S256'
-      });
-
-      logger.debug('Redirecting to Google OAuth', {
-        redirectUri,
-        state,
-        hasChallenge: !!challenge
-      });
-
-      window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-    } catch (err) {
-      logger.error('Failed to start redirect login:', err);
-      setError(err.message || t.googleLoginFailed);
-    }
-  };
 
   // Loading animation component
   const LoadingSpinner = ({ size = 20, color = 'rgba(59, 130, 246, 0.8)' }) => (
@@ -1765,97 +1742,93 @@ function App() {
             )}
           </form>
 
-          {/* Google登錄按鈕 - 強制顯示用於調試 */}
-          {console.log('Google button render check:', { isAuthenticated, googleAuthReady, shouldShow: !isAuthenticated && googleAuthReady })}
-          {(() => {
-            console.log('Rendering Google login button (forced)');
-            return true;
-          })() && (
-              <div
-                style={{
-                  marginTop: '24px',
-                  padding: '20px',
-                  backgroundColor: 'rgba(2, 6, 23, 0.6)',
-                  borderRadius: '12px',
-                  border: '1px solid rgba(59, 130, 246, 0.2)',
-                  textAlign: 'center'
-                }}
-              >
-                <p style={{
-                  color: 'rgba(203, 213, 225, 0.8)',
-                  fontSize: '0.875rem',
-                  margin: '0 0 16px 0',
-                  fontWeight: '500'
-                }}>
-                  {t.loginPrompt}
-                </p>
+          {/* Google登錄按鈕 - 只在未登入時顯示 */}
+          {!isAuthenticated && googleAuthReady && (
+            <div
+              style={{
+                marginTop: '24px',
+                padding: '20px',
+                backgroundColor: 'rgba(2, 6, 23, 0.6)',
+                borderRadius: '12px',
+                border: '1px solid rgba(59, 130, 246, 0.2)',
+                textAlign: 'center'
+              }}
+            >
+              <p style={{
+                color: 'rgba(203, 213, 225, 0.8)',
+                fontSize: '0.875rem',
+                margin: '0 0 16px 0',
+                fontWeight: '500'
+              }}>
+                {t.loginPrompt}
+              </p>
 
-                {/* Google Sign-In Button - 重定向登入 */}
-                <div style={{
-                  width: '100%',
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  marginBottom: '12px'
-                }}>
-                  <button
-                    onClick={handleRedirectLogin}
-                    disabled={isLoggingIn}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      padding: '12px 24px',
-                      backgroundColor: isLoggingIn ? '#f3f4f6' : 'white',
-                      border: '1px solid #dadce0',
-                      borderRadius: '8px',
-                      cursor: isLoggingIn ? 'not-allowed' : 'pointer',
-                      fontSize: '16px',
-                      fontWeight: '500',
-                      color: isLoggingIn ? '#9ca3af' : '#3c4043',
-                      transition: 'all 0.2s ease',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                      opacity: isLoggingIn ? 0.7 : 1
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isLoggingIn) {
-                        e.target.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
-                        e.target.style.transform = 'translateY(-1px)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isLoggingIn) {
-                        e.target.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
-                        e.target.style.transform = 'translateY(0)';
-                      }
-                    }}
-                  >
-                    {isLoggingIn ? (
-                      <>
-                        <LoadingSpinner size={16} color="#9ca3af" />
-                        <span>{t.loggingIn}</span>
-                      </>
-                    ) : (
-                      <>
-                        <svg width="18" height="18" viewBox="0 0 24 24">
-                          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                        </svg>
-                        {t.googleRedirectButton}
-                      </>
-                    )}
-                  </button>
-                </div>
-                <p style={{
-                  color: 'rgba(148, 163, 184, 0.7)',
-                  fontSize: '0.75rem',
-                  margin: '12px 0 0 0'
-                }}>
-                </p>
+              {/* Google Sign-In Button - 重定向登入 */}
+              <div style={{
+                width: '100%',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: '12px'
+              }}>
+                <button
+                  onClick={handleGoogleResponse}
+                  disabled={isLoggingIn}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '12px 24px',
+                    backgroundColor: isLoggingIn ? '#f3f4f6' : 'white',
+                    border: '1px solid #dadce0',
+                    borderRadius: '8px',
+                    cursor: isLoggingIn ? 'not-allowed' : 'pointer',
+                    fontSize: '16px',
+                    fontWeight: '500',
+                    color: isLoggingIn ? '#9ca3af' : '#3c4043',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                    opacity: isLoggingIn ? 0.7 : 1
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isLoggingIn) {
+                      e.target.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+                      e.target.style.transform = 'translateY(-1px)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isLoggingIn) {
+                      e.target.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+                      e.target.style.transform = 'translateY(0)';
+                    }
+                  }}
+                >
+                  {isLoggingIn ? (
+                    <>
+                      <LoadingSpinner size={16} color="#9ca3af" />
+                      <span>{t.loggingIn}</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg width="18" height="18" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                      </svg>
+                      {t.googleRedirectButton}
+                    </>
+                  )}
+                </button>
               </div>
-            )}
+              <p style={{
+                color: 'rgba(148, 163, 184, 0.7)',
+                fontSize: '0.75rem',
+                margin: '12px 0 0 0'
+              }}>
+              </p>
+            </div>
+          )}
 
           {/* Result display */}
           {result && (
