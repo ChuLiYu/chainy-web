@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useReducer } from 'react';
 import './App.css';
 import './styles.css';
 import {
@@ -18,174 +18,252 @@ import { ServiceStatusDisplay, ServiceStatusBanner } from './components/ServiceS
 // Initialize logger for App component
 const logger = createLogger('App');
 
-// Environment variables
-const API_ENDPOINT = import.meta.env.VITE_CHAINY_API ?? 'https://9qwxcajqf9.execute-api.ap-northeast-1.amazonaws.com';
+const API_ENDPOINT = import.meta.env.VITE_CHAINY_API ?? 'https://your-api-gateway-url.amazonaws.com';
+const GOOGLE_REDIRECT_URI = import.meta.env.VITE_GOOGLE_REDIRECT_URI;
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? 'YOUR_GOOGLE_CLIENT_ID_HERE';
-const GOOGLE_REDIRECT_URI = import.meta.env.VITE_GOOGLE_REDIRECT_URI ?? 'http://localhost:3000';
+const PKCE_VERIFIER_PREFIX = 'google_pkce_verifier';
 
-
-// URL validation
-function isValidUrl(string) {
-  try {
-    new URL(string);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// Custom code validation
-function isValidCustomCode(code) {
-  const pattern = /^[a-zA-Z0-9_-]{4,32}$/;
-  return pattern.test(code);
-}
-
-// Short URL resolution
-function resolveShortUrl(link) {
-  const base = window.location.origin;
-  if (link.custom_code) {
-    return `${base}/${link.custom_code}`;
-  }
-  return `${base}/${link.code}`;
-}
-
-// Translations
+// Language translations
 const translations = {
+  zh: {
+    title: 'CHAINY',
+    subtitle: 'Instant Links, WAGMI 🚀',
+    urlShortener: 'URL Shortener',
+    targetUrl: 'Target URL',
+    placeholder: 'https://your-website.com',
+    customCode: 'Custom Code',
+    customCodePlaceholder: 'e.g., my-link',
+    customCodeHelp: 'Add a memorable title for this short URL to easily identify it in your list',
+    generateShortUrl: 'Generate Short URL',
+    generating: 'Generating...',
+    invalidUrl: 'Please enter a valid URL',
+    invalidCustomCode: 'Custom code must be 4-32 characters (letters, numbers, hyphens, underscores)',
+    loginPrompt: '💡 Login to customize short codes and manage links',
+    signInWithGoogle: 'Sign in with Google',
+    signingIn: 'Signing in...',
+    myShortLinks: 'My Short Links▼',
+    myLinks: 'My Links',
+    noLinks: 'No links yet',
+    loading: 'Loading...',
+    copyLink: 'Copy',
+    copied: 'Copied!',
+    deleteLink: 'Delete',
+    retry: 'Retry',
+    poweredBy: 'Powered by Chainy',
+    github: 'GitHub',
+    logout: 'Click to sign out'
+  },
   en: {
     title: 'CHAINY',
     subtitle: 'Instant Links, WAGMI 🚀',
     urlShortener: 'URL Shortener',
     targetUrl: 'Target URL',
     placeholder: 'https://your-website.com',
-    generateShortUrl: 'Generate Short URL',
-    loginPrompt: '💡 Login to customize short codes and manage links',
-    signInWithGoogle: 'Sign in with Google',
-    poweredBy: 'Powered by Chainy',
-    github: 'GitHub',
-    myShortLinks: 'My Short Links',
-    myLinks: 'My Links',
     customCode: 'Custom Code',
     customCodePlaceholder: 'e.g., my-link',
     customCodeHelp: 'Add a memorable title for this short URL to easily identify it in your list',
+    generateShortUrl: 'Generate Short URL',
+    generating: 'Generating...',
     invalidUrl: 'Please enter a valid URL',
-    invalidCustomCode: 'Custom code must be 4-32 characters, letters, numbers, hyphens, and underscores only',
-    copyLink: 'Copy Link',
+    invalidCustomCode: 'Custom code must be 4-32 characters (letters, numbers, hyphens, underscores)',
+    loginPrompt: '💡 Login to customize short codes and manage links',
+    signInWithGoogle: 'Sign in with Google',
+    signingIn: 'Signing in...',
+    myShortLinks: 'My Short Links▼',
+    myLinks: 'My Links',
+    noLinks: 'No links yet',
+    loading: 'Loading...',
+    copyLink: 'Copy',
     copied: 'Copied!',
     deleteLink: 'Delete',
-    editLink: 'Edit',
-    save: 'Save',
-    cancel: 'Cancel',
-    logout: 'Click to sign out',
-    loading: 'Loading...',
-    error: 'Error',
     retry: 'Retry',
-    noLinks: 'No short links yet. Create your first one above!',
-    loginFailed: 'Login failed',
-    jwtMissing: 'JWT token missing',
-    authExpired: 'Authentication expired. Please login again.',
-    userProfileMissing: 'User profile is missing. Please login again.',
-    failedToFetch: 'Failed to fetch links',
-    failedToRetrieve: 'Failed to retrieve links',
-    networkError: 'Network error. Please check your connection.',
-    serverError: 'Server error. Please try again later.',
-    unknownError: 'Unknown error occurred'
-  },
-  zh: {
-    title: 'CHAINY',
-    subtitle: '即時連結，WAGMI 🚀',
-    urlShortener: '網址縮短器',
-    targetUrl: '目標網址',
-    placeholder: 'https://your-website.com',
-    generateShortUrl: '生成短網址',
-    loginPrompt: '💡 登入以自訂代碼和管理連結',
-    signInWithGoogle: '使用 Google 登入',
-    poweredBy: '由 Chainy 提供技術支援',
+    poweredBy: 'Powered by Chainy',
     github: 'GitHub',
-    myShortLinks: '我的短網址',
-    myLinks: '我的連結',
-    customCode: '自訂代碼',
-    customCodePlaceholder: '例如：my-link',
-    customCodeHelp: '為此短網址添加一個難忘的標題，以便在列表中輕鬆識別',
-    invalidUrl: '請輸入有效的網址',
-    invalidCustomCode: '自訂代碼必須是 4-32 個字符，只能包含字母、數字、連字符和底線',
-    copyLink: '複製連結',
-    copied: '已複製！',
-    deleteLink: '刪除',
-    editLink: '編輯',
-    save: '儲存',
-    cancel: '取消',
-    logout: '點擊登出',
-    loading: '載入中...',
-    error: '錯誤',
-    retry: '重試',
-    noLinks: '還沒有短網址。請在上面創建您的第一個！',
-    loginFailed: '登入失敗',
-    jwtMissing: 'JWT 令牌缺失',
-    authExpired: '認證已過期。請重新登入。',
-    userProfileMissing: '用戶資料缺失。請重新登入。',
-    failedToFetch: '獲取連結失敗',
-    failedToRetrieve: '檢索連結失敗',
-    networkError: '網路錯誤。請檢查您的連接。',
-    serverError: '伺服器錯誤。請稍後再試。',
-    unknownError: '發生未知錯誤'
+    logout: 'Click to sign out'
   }
 };
 
-function App() {
-  // State management - grouped by functionality
-  const [url, setUrl] = useState('');
-  const [customCode, setCustomCode] = useState('');
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
+// 1. 合併相關狀態的 reducer
+const initialState = {
+  // URL 相關狀態
+  url: '',
+  customCode: '',
+  result: null,
+  error: '',
+  
+  // 載入狀態
+  isLoading: false,
+  isLoadingLinks: false,
+  isLoggingIn: false,
+  
+  // 驗證狀態
+  isValidUrl: false,
+  isValidCustomCode: false,
+  
+  // 用戶認證狀態
+  isAuthenticated: false,
+  user: null,
+  
+  // UI 狀態
+  language: 'en',
+  copied: false,
+  copiedLinks: new Set(),
+  showLinksList: false,
+  linksList: [],
+  
+  // 服務狀態
+  serviceStatus: null,
+  showServiceStatusModal: false
+};
 
-  // Authentication state
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState(null);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+function appReducer(state, action) {
+  switch (action.type) {
+    case 'SET_URL':
+      return { ...state, url: action.payload };
+    case 'SET_CUSTOM_CODE':
+      return { ...state, customCode: action.payload };
+    case 'SET_RESULT':
+      return { ...state, result: action.payload };
+    case 'SET_ERROR':
+      return { ...state, error: action.payload };
+    case 'SET_LOADING':
+      return { ...state, isLoading: action.payload };
+    case 'SET_LOADING_LINKS':
+      return { ...state, isLoadingLinks: action.payload };
+    case 'SET_LOGGING_IN':
+      return { ...state, isLoggingIn: action.payload };
+    case 'SET_VALIDATION':
+      return { 
+        ...state, 
+        isValidUrl: action.payload.isValidUrl ?? state.isValidUrl,
+        isValidCustomCode: action.payload.isValidCustomCode ?? state.isValidCustomCode
+      };
+    case 'SET_AUTH':
+      return { 
+        ...state, 
+        isAuthenticated: action.payload.isAuthenticated ?? state.isAuthenticated,
+        user: action.payload.user ?? state.user
+      };
+    case 'SET_LANGUAGE':
+      return { ...state, language: action.payload };
+    case 'SET_COPIED':
+      return { ...state, copied: action.payload };
+    case 'ADD_COPIED_LINK':
+      return { 
+        ...state, 
+        copiedLinks: new Set([...state.copiedLinks, action.payload])
+      };
+    case 'SET_SHOW_LINKS_LIST':
+      return { ...state, showLinksList: action.payload };
+    case 'SET_LINKS_LIST':
+      return { ...state, linksList: action.payload };
+    case 'SET_SERVICE_STATUS':
+      return { 
+        ...state, 
+        serviceStatus: action.payload.serviceStatus ?? state.serviceStatus,
+        showServiceStatusModal: action.payload.showModal ?? state.showServiceStatusModal
+      };
+    case 'RESET_FORM':
+      return { 
+        ...state, 
+        url: '', 
+        customCode: '', 
+        result: null, 
+        error: '',
+        copied: false
+      };
+    default:
+      return state;
+  }
+}
 
-  // Links management state
-  const [showLinksList, setShowLinksList] = useState(false);
-  const [linksList, setLinksList] = useState([]);
-  const [isLoadingLinks, setIsLoadingLinks] = useState(false);
-  const [copiedLinks, setCopiedLinks] = useState(new Set());
+// 2. 自定義 Hook：URL 驗證
+function useUrlValidation() {
+  const isValidUrl = useCallback((url) => {
+    if (!url) return false;
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
 
-  // UI state
-  const [language, setLanguage] = useState('en');
-  const [serviceStatus, setServiceStatus] = useState(null);
-  const [showServiceStatusModal, setShowServiceStatusModal] = useState(false);
+  const isValidCustomCode = useCallback((code) => {
+    if (!code) return true; // 空值視為有效
+    return /^[a-zA-Z0-9_-]{4,32}$/.test(code);
+  }, []);
 
-  // Computed values
-  const isValidUrlValue = isValidUrl(url);
-  const isValidCustomCodeValue = isValidCustomCode(customCode);
-  const t = translations[language];
+  return { isValidUrl, isValidCustomCode };
+}
 
-  // Fetch links list with retry logic
-  const fetchLinksList = useCallback(async (retryAttempt = 0) => {
+// 3. 自定義 Hook：認證管理
+function useAuth() {
+  const [authState, setAuthState] = useState({
+    isAuthenticated: false,
+    user: null
+  });
+
+  const login = useCallback((user, jwt) => {
+    localStorage.setItem('chainy_jwt_token', jwt);
+    localStorage.setItem('chainy_user_profile', JSON.stringify(user));
+    setAuthState({ isAuthenticated: true, user });
+  }, []);
+
+  const logout = useCallback(() => {
+    clearToken();
+    clearUserProfile();
+    setAuthState({ isAuthenticated: false, user: null });
+  }, []);
+
+  const checkAuthStatus = useCallback(() => {
+    const isAuth = checkAuth();
+    const user = getCurrentUser();
+    setAuthState({ isAuthenticated: isAuth, user });
+  }, []);
+
+  return { ...authState, login, logout, checkAuthStatus };
+}
+
+// 4. 自定義 Hook：連結管理
+function useLinksManagement(apiEndpoint, isAuthenticated) {
+  const [linksState, setLinksState] = useState({
+    linksList: [],
+    isLoadingLinks: false,
+    showLinksList: false
+  });
+
+  const resolveShortUrl = useCallback((link) => {
+    if (!link) return '';
+    const candidates = [link.short_url, link.shortUrl];
+    const valid = candidates.find((value) => typeof value === 'string' && value.trim().length > 0);
+    if (valid) return valid;
+    
+    const base = 'https://chainy.luichu.dev';
+    return link.code ? `${base}/${link.code}` : base;
+  }, []);
+
+  const fetchLinksList = useCallback(async () => {
     if (!isAuthenticated) return;
 
-    setIsLoadingLinks(true);
-    setError('');
+    setLinksState(prev => ({ ...prev, isLoadingLinks: true }));
 
     try {
       const currentUser = getCurrentUser();
       if (!currentUser?.userId) {
-        throw new Error(t.userProfileMissing);
+        throw new Error('User profile is missing. Please login again.');
       }
 
       const options = createAuthenticatedRequest({ method: 'GET' });
-      const response = await fetchWithServiceStatusCheck(`${API_ENDPOINT}/links`, options, language);
+      const response = await fetchWithServiceStatusCheck(`${apiEndpoint}/links`, options, 'en');
 
       if (handleAuthError(response)) {
-        setIsAuthenticated(false);
-        setUser(null);
-        throw new Error(t.authExpired);
+        throw new Error('Authentication expired. Please login again.');
       }
 
       if (!response.ok) {
         const err = await response.json();
-        throw new Error(err.message || t.failedToFetch);
+        throw new Error(err.message || 'Failed to fetch links');
       }
 
       const data = await response.json();
@@ -196,36 +274,41 @@ function App() {
         short_url: link.short_url || link.shortUrl || undefined
       }));
 
-      const sortedLinks = normalizedLinks.sort((a, b) =>
+      const sortedLinks = normalizedLinks.sort((a, b) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
 
-      setLinksList(sortedLinks);
+      setLinksState(prev => ({ 
+        ...prev, 
+        linksList: sortedLinks, 
+        isLoadingLinks: false 
+      }));
     } catch (err) {
       logger.error('Error fetching links:', err);
-
-      if (err.isServiceDown && err.serviceStatus) {
-        setServiceStatus(err.serviceStatus);
-        setShowServiceStatusModal(true);
-        return;
-      }
-
-      if (retryAttempt < 2 && (err.message.includes('fetch') || err.message.includes('network'))) {
-        logger.debug(`Retrying fetchLinksList, attempt ${retryAttempt + 1}`);
-        setTimeout(() => {
-          fetchLinksList(retryAttempt + 1);
-        }, 1000 * (retryAttempt + 1));
-        return;
-      }
-
-      setError(err.message || t.failedToRetrieve);
-    } finally {
-      setIsLoadingLinks(false);
+      setLinksState(prev => ({ 
+        ...prev, 
+        isLoadingLinks: false 
+      }));
+      throw err;
     }
-  }, [isAuthenticated, language, t]);
+  }, [isAuthenticated, apiEndpoint, resolveShortUrl]);
 
+  const toggleLinksList = useCallback(() => {
+    setLinksState(prev => ({ 
+      ...prev, 
+      showLinksList: !prev.showLinksList 
+    }));
+  }, []);
 
-  // Pure OAuth 2.0 redirect handler
+  return {
+    ...linksState,
+    fetchLinksList,
+    toggleLinksList
+  };
+}
+
+// 5. 自定義 Hook：Google OAuth
+function useGoogleAuth() {
   const handleGoogleResponse = useCallback(() => {
     logger.debug('Google login button clicked - redirecting to OAuth 2.0 flow');
 
@@ -261,7 +344,7 @@ function App() {
         const state = `google_auth_${generateRandomString(16)}`;
         const { verifier, challenge } = await createPkcePair();
         sessionStorage.setItem(`pkce_verifier_${state}`, verifier);
-
+        
         logger.debug('PKCE parameters:', {
           state,
           verifier: verifier.substring(0, 20) + '...',
@@ -295,14 +378,60 @@ function App() {
         window.location.href = authUrl;
       } catch (err) {
         logger.error('Failed to start redirect login:', err);
-        setError(err.message || 'Google 登入失敗');
+        throw err;
       }
     };
 
     startOAuthRedirect();
-  }, [setError]);
+  }, []);
 
-  // OAuth callback handler
+  return { handleGoogleResponse };
+}
+
+// Loading Spinner Component
+function LoadingSpinner({ size = 20 }) {
+  return (
+    <div
+      className="inline-block animate-spin rounded-full border-2 border-solid border-current border-r-transparent motion-reduce:animate-[spin_1.5s_linear_infinite]"
+      style={{
+        width: `${size}px`,
+        height: `${size}px`,
+        animation: 'spin 1s ease-in-out infinite',
+      }}
+    />
+  );
+}
+
+function App() {
+  const [state, dispatch] = useReducer(appReducer, initialState);
+  const { isValidUrl, isValidCustomCode } = useUrlValidation();
+  const { isAuthenticated, user, login, logout, checkAuthStatus } = useAuth();
+  const { linksList, isLoadingLinks, showLinksList, fetchLinksList, toggleLinksList } = useLinksManagement(API_ENDPOINT, isAuthenticated);
+  const { handleGoogleResponse } = useGoogleAuth();
+
+  const t = translations[state.language];
+
+  // 驗證 URL 和自訂代碼
+  const isValidUrlValue = isValidUrl(state.url);
+  const isValidCustomCodeValue = isValidCustomCode(state.customCode);
+
+  // 更新驗證狀態
+  useEffect(() => {
+    dispatch({
+      type: 'SET_VALIDATION',
+      payload: {
+        isValidUrl: isValidUrlValue,
+        isValidCustomCode: isValidCustomCodeValue
+      }
+    });
+  }, [isValidUrlValue, isValidCustomCodeValue]);
+
+  // 檢查認證狀態
+  useEffect(() => {
+    checkAuthStatus();
+  }, [checkAuthStatus]);
+
+  // OAuth 回調處理
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
@@ -311,7 +440,7 @@ function App() {
 
     if (error) {
       logger.error('OAuth error:', error);
-      setError(`登入失敗: ${error}`);
+      dispatch({ type: 'SET_ERROR', payload: `登入失敗: ${error}` });
       return;
     }
 
@@ -323,8 +452,8 @@ function App() {
 
       const handleOAuthCallback = async () => {
         try {
-          setIsLoggingIn(true);
-          setError('');
+          dispatch({ type: 'SET_LOGGING_IN', payload: true });
+          dispatch({ type: 'SET_ERROR', payload: '' });
 
           logger.debug('=== OAUTH CALLBACK DEBUG ===');
           logger.debug('API_ENDPOINT:', API_ENDPOINT);
@@ -366,201 +495,127 @@ function App() {
           const data = await response.json();
           logger.debug('OAuth success:', data);
 
-          localStorage.setItem('chainy_jwt_token', data.jwt);
-          localStorage.setItem('chainy_user_profile', JSON.stringify(data.user));
-          setUser(data.user);
-          setIsAuthenticated(true);
-
+          login(data.user, data.jwt);
           sessionStorage.removeItem(`pkce_verifier_${state}`);
           window.history.replaceState({}, document.title, window.location.pathname);
 
         } catch (err) {
           logger.error('OAuth callback error:', err);
-          setError('登入失敗: ' + err.message);
+          dispatch({ type: 'SET_ERROR', payload: '登入失敗: ' + err.message });
         } finally {
-          setIsLoggingIn(false);
+          dispatch({ type: 'SET_LOGGING_IN', payload: false });
         }
       };
 
       handleOAuthCallback();
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }, [setIsAuthenticated, setIsLoggingIn, setError, setUser]);
+  }, [login]);
 
-  // Initialize authentication status
-  useEffect(() => {
-    const checkAuthStatus = () => {
-      const authStatus = checkAuth();
-      setIsAuthenticated(authStatus);
-      if (authStatus) {
-        setUser(getCurrentUser());
-      } else {
-        setUser(null);
-      }
-    };
-    checkAuthStatus();
-  }, []);
-
-  // Fetch links when authenticated
+  // 當用戶登入時自動載入連結
   useEffect(() => {
     if (isAuthenticated) {
-      logger.debug('User authenticated, fetching links list');
       fetchLinksList();
     }
   }, [isAuthenticated, fetchLinksList]);
 
-  // Handle form submission
-  const handleSubmit = async (e) => {
+  // 處理表單提交
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
-    if (!isValidUrlValue) {
-      setError(t.invalidUrl);
+    
+    if (!isValidUrlValue || (state.customCode && !isValidCustomCodeValue)) {
       return;
     }
 
-    setIsLoading(true);
-    setError('');
+    dispatch({ type: 'SET_LOADING', payload: true });
+    dispatch({ type: 'SET_ERROR', payload: '' });
 
     try {
-      const options = createAuthenticatedRequest({
-        method: 'POST',
-        body: JSON.stringify({
-          target: url,
-          custom_code: customCode || undefined,
-        }),
-      });
+      const requestBody = {
+        url: state.url,
+        ...(state.customCode && { customCode: state.customCode })
+      };
 
-      const response = await fetchWithServiceStatusCheck(`${API_ENDPOINT}/links`, options, language);
+      const options = isAuthenticated 
+        ? createAuthenticatedRequest({ method: 'POST', body: JSON.stringify(requestBody) })
+        : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) };
 
-      if (handleAuthError(response)) {
-        setIsAuthenticated(false);
-        setUser(null);
-        throw new Error(t.authExpired);
-      }
+      const response = await fetchWithServiceStatusCheck(`${API_ENDPOINT}/create`, options, state.language);
 
       if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.message || 'Failed to create short link');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create short URL');
       }
 
       const data = await response.json();
-      setResult(data);
-      setUrl('');
-      setCustomCode('');
+      dispatch({ type: 'SET_RESULT', payload: data });
+      dispatch({ type: 'RESET_FORM' });
 
       if (isAuthenticated) {
         await fetchLinksList();
       }
     } catch (err) {
-      logger.error('Error creating short link:', err);
-
-      if (err.isServiceDown && err.serviceStatus) {
-        setServiceStatus(err.serviceStatus);
-        setShowServiceStatusModal(true);
-        return;
-      }
-
-      setError(err.message || t.unknownError);
+      logger.error('Error creating short URL:', err);
+      dispatch({ type: 'SET_ERROR', payload: err.message || 'Failed to create short URL' });
     } finally {
-      setIsLoading(false);
+      dispatch({ type: 'SET_LOADING', payload: false });
     }
-  };
+  }, [state.url, state.customCode, state.language, isValidUrlValue, isValidCustomCodeValue, isAuthenticated, fetchLinksList]);
 
-  // Copy to clipboard
-  const copyToClipboard = async (text) => {
+  // 複製到剪貼板
+  const copyToClipboard = useCallback(async (text) => {
     try {
       await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      dispatch({ type: 'SET_COPIED', payload: true });
+      setTimeout(() => dispatch({ type: 'SET_COPIED', payload: false }), 2000);
     } catch (err) {
-      logger.error('Failed to copy:', err);
+      logger.error('Failed to copy to clipboard:', err);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to copy to clipboard' });
     }
-  };
+  }, []);
 
-  // Copy link with tracking
-  const copyLink = async (link) => {
-    await copyToClipboard(link.shortUrl);
-    setCopiedLinks(prev => new Set([...prev, link.id]));
-    setTimeout(() => {
-      setCopiedLinks(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(link.id);
-        return newSet;
-      });
-    }, 2000);
-  };
+  // 複製連結
+  const copyLink = useCallback((link) => {
+    copyToClipboard(link.shortUrl);
+    dispatch({ type: 'ADD_COPIED_LINK', payload: link.id });
+  }, [copyToClipboard]);
 
-  // Delete link
-  const deleteLink = async (linkId) => {
+  // 刪除連結
+  const deleteLink = useCallback(async (linkId) => {
     try {
       const options = createAuthenticatedRequest({ method: 'DELETE' });
-      const response = await fetchWithServiceStatusCheck(`${API_ENDPOINT}/links/${linkId}`, options, language);
-
-      if (handleAuthError(response)) {
-        setIsAuthenticated(false);
-        setUser(null);
-        throw new Error(t.authExpired);
-      }
+      const response = await fetch(`${API_ENDPOINT}/links/${linkId}`, options);
 
       if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.message || 'Failed to delete link');
+        throw new Error('Failed to delete link');
       }
 
       await fetchLinksList();
     } catch (err) {
       logger.error('Error deleting link:', err);
-      setError(err.message || 'Failed to delete link');
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to delete link' });
     }
-  };
+  }, [fetchLinksList]);
 
-  // Logout
-  const handleLogout = () => {
-    clearToken();
-    clearUserProfile();
-    setIsAuthenticated(false);
-    setUser(null);
-    setShowLinksList(false);
-    setLinksList([]);
-    setResult(null);
-  };
+  // 處理登出
+  const handleLogout = useCallback(() => {
+    logout();
+    dispatch({ type: 'SET_LINKS_LIST', payload: [] });
+    dispatch({ type: 'SET_SHOW_LINKS_LIST', payload: false });
+  }, [logout]);
 
-  // Toggle links list
-  const handleToggleLinksList = () => {
-    if (!isAuthenticated) return;
-    if (!showLinksList) {
+  // 處理服務狀態重試
+  const handleServiceStatusRetry = useCallback(() => {
+    dispatch({ type: 'SET_SERVICE_STATUS', payload: { showModal: false } });
+    if (isAuthenticated) {
       fetchLinksList();
     }
-    setShowLinksList(prev => !prev);
-  };
+  }, [isAuthenticated, fetchLinksList]);
 
-  // Service status handlers
-  const handleServiceStatusRetry = () => {
-    setShowServiceStatusModal(false);
-    setServiceStatus(null);
-    if (isAuthenticated && showLinksList) {
-      fetchLinksList();
-    }
-  };
-
-  const handleServiceStatusDismiss = () => {
-    setShowServiceStatusModal(false);
-    setServiceStatus(null);
-  };
-
-  // Loading spinner component
-  const LoadingSpinner = ({ size = 20, color = 'rgba(59, 130, 246, 0.8)' }) => (
-    <div
-      style={{
-        display: 'inline-block',
-        width: size,
-        height: size,
-        border: `2px solid ${color}`,
-        borderRadius: '50%',
-        borderTopColor: 'transparent',
-        animation: 'spin 1s ease-in-out infinite',
-      }}
-    />
-  );
+  // 處理服務狀態關閉
+  const handleServiceStatusDismiss = useCallback(() => {
+    dispatch({ type: 'SET_SERVICE_STATUS', payload: { showModal: false } });
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white animate-gradient bg-grid-pattern bg-crypto-pattern">
@@ -568,9 +623,9 @@ function App() {
       <div className="absolute top-4 left-4 z-50">
         <div className="flex space-x-2">
           <button
-            onClick={() => setLanguage('zh')}
+            onClick={() => dispatch({ type: 'SET_LANGUAGE', payload: 'zh' })}
             className={`px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 hover-lift ${
-              language === 'zh' 
+              state.language === 'zh' 
                 ? 'bg-blue-600 text-white shadow-lg crypto-glow-blue' 
                 : 'bg-white/10 text-white/70 hover:bg-white/20 hover-glow'
             }`}
@@ -578,9 +633,9 @@ function App() {
             中文
           </button>
           <button
-            onClick={() => setLanguage('en')}
+            onClick={() => dispatch({ type: 'SET_LANGUAGE', payload: 'en' })}
             className={`px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 hover-lift ${
-              language === 'en' 
+              state.language === 'en' 
                 ? 'bg-blue-600 text-white shadow-lg crypto-glow-blue' 
                 : 'bg-white/10 text-white/70 hover:bg-white/20 hover-glow'
             }`}
@@ -598,7 +653,7 @@ function App() {
             CHAINY
           </h1>
           <p className="text-xl text-gray-300 flex items-center justify-center gap-2 animate-slide-in-up">
-            {translations[language].subtitle}
+            {t.subtitle}
             <span className="text-2xl animate-bounce">🚀</span>
           </p>
         </div>
@@ -628,7 +683,6 @@ function App() {
           </div>
         )}
 
-
         {/* URL Shortener Section */}
         <div className="max-w-4xl mx-auto">
           <div className="glass-effect rounded-3xl p-8 crypto-glow hover-lift animate-slide-in-up">
@@ -644,17 +698,17 @@ function App() {
                 <input
                   id="url"
                   type="url"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
+                  value={state.url}
+                  onChange={(e) => dispatch({ type: 'SET_URL', payload: e.target.value })}
                   placeholder={t.placeholder}
                   className={`w-full px-4 py-3 rounded-xl bg-white/10 border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    !isValidUrlValue && url 
+                    !isValidUrlValue && state.url 
                       ? 'border-red-500 bg-red-500/10' 
                       : 'border-white/20 hover:border-white/40'
                   }`}
                   required
                 />
-                {!isValidUrlValue && url && (
+                {!isValidUrlValue && state.url && (
                   <span className="text-red-400 text-sm mt-1 block">{t.invalidUrl}</span>
                 )}
               </div>
@@ -667,17 +721,17 @@ function App() {
                   <input
                     id="customCode"
                     type="text"
-                    value={customCode}
-                    onChange={(e) => setCustomCode(e.target.value)}
+                    value={state.customCode}
+                    onChange={(e) => dispatch({ type: 'SET_CUSTOM_CODE', payload: e.target.value })}
                     placeholder={t.customCodePlaceholder}
                     className={`w-full px-4 py-3 rounded-xl bg-white/10 border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      !isValidCustomCodeValue && customCode 
+                      !isValidCustomCodeValue && state.customCode 
                         ? 'border-red-500 bg-red-500/10' 
                         : 'border-white/20 hover:border-white/40'
                     }`}
                   />
                   <p className="text-sm text-gray-400 mt-2">{t.customCodeHelp}</p>
-                  {!isValidCustomCodeValue && customCode && (
+                  {!isValidCustomCodeValue && state.customCode && (
                     <span className="text-red-400 text-sm mt-1 block">{t.invalidCustomCode}</span>
                   )}
                 </div>
@@ -685,10 +739,10 @@ function App() {
 
               <button
                 type="submit"
-                disabled={isLoading || !isValidUrlValue || (customCode && !isValidCustomCodeValue)}
+                disabled={state.isLoading || !isValidUrlValue || (state.customCode && !isValidCustomCodeValue)}
                 className="w-full py-4 px-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover-lift crypto-glow-blue animate-crypto-pulse"
               >
-                {isLoading ? (
+                {state.isLoading ? (
                   <div className="flex items-center justify-center space-x-2">
                     <LoadingSpinner size={20} />
                     <span>{t.generating}</span>
@@ -700,10 +754,10 @@ function App() {
             </form>
 
             {/* Error Display */}
-            {error && (
+            {state.error && (
               <div className="mt-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
-                <p className="text-red-400 text-center">{error}</p>
-                {(error.includes('Failed to fetch') || error.includes('Failed to retrieve')) && (
+                <p className="text-red-400 text-center">{state.error}</p>
+                {(state.error.includes('Failed to fetch') || state.error.includes('Failed to retrieve')) && (
                   <button
                     onClick={() => fetchLinksList()}
                     disabled={isLoadingLinks}
@@ -716,17 +770,17 @@ function App() {
             )}
 
             {/* Result Display */}
-            {result && (
+            {state.result && (
               <div className="mt-6 p-6 bg-green-500/10 border border-green-500/20 rounded-xl crypto-glow-emerald">
                 <div className="text-center">
                   <p className="text-green-400 font-semibold mb-2">Short URL:</p>
-                  <p className="text-white font-mono text-lg break-all">{result.shortUrl}</p>
+                  <p className="text-white font-mono text-lg break-all">{state.result.shortUrl}</p>
                   <button
-                    onClick={() => copyToClipboard(result.shortUrl)}
+                    onClick={() => copyToClipboard(state.result.shortUrl)}
                     className="mt-4 py-2 px-6 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors duration-200"
-                    disabled={copied}
+                    disabled={state.copied}
                   >
-                    {copied ? t.copied : t.copyLink}
+                    {state.copied ? t.copied : t.copyLink}
                   </button>
                 </div>
               </div>
@@ -738,10 +792,10 @@ function App() {
                 <p className="text-gray-300 mb-4">{t.loginPrompt}</p>
                 <button
                   onClick={handleGoogleResponse}
-                  disabled={isLoggingIn}
+                  disabled={state.isLoggingIn}
                   className="py-3 px-6 bg-white text-gray-900 rounded-xl hover:bg-gray-100 disabled:opacity-50 transition-all duration-200 hover-lift font-semibold"
                 >
-                  {isLoggingIn ? (
+                  {state.isLoggingIn ? (
                     <div className="flex items-center space-x-2">
                       <LoadingSpinner size={16} />
                       <span>{t.signingIn}</span>
@@ -760,7 +814,7 @@ function App() {
           <div className="max-w-4xl mx-auto mt-12">
             <div className="glass-effect rounded-3xl p-8 crypto-glow hover-lift animate-slide-in-up">
               <button
-                onClick={handleToggleLinksList}
+                onClick={toggleLinksList}
                 className="w-full py-4 px-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all duration-200 hover-lift crypto-glow-purple"
               >
                 <div className="flex items-center justify-center space-x-2">
@@ -806,9 +860,9 @@ function App() {
                               <button
                                 onClick={() => copyLink(link)}
                                 className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors duration-200"
-                                disabled={copiedLinks.has(link.id)}
+                                disabled={state.copiedLinks.has(link.id)}
                               >
-                                {copiedLinks.has(link.id) ? t.copied : t.copyLink}
+                                {state.copiedLinks.has(link.id) ? t.copied : t.copyLink}
                               </button>
                               <button
                                 onClick={() => deleteLink(link.id)}
@@ -846,12 +900,12 @@ function App() {
 
       {/* Service Status Components */}
       <ServiceStatusDisplay
-        serviceStatus={serviceStatus}
-        showModal={showServiceStatusModal}
+        serviceStatus={state.serviceStatus}
+        showModal={state.showServiceStatusModal}
         onRetry={handleServiceStatusRetry}
         onDismiss={handleServiceStatusDismiss}
       />
-      <ServiceStatusBanner serviceStatus={serviceStatus} />
+      <ServiceStatusBanner serviceStatus={state.serviceStatus} />
     </div>
   );
 }
