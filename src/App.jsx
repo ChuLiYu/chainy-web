@@ -139,23 +139,23 @@ function App() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
-  
+
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  
+
   // Links management state
   const [showLinksList, setShowLinksList] = useState(false);
   const [linksList, setLinksList] = useState([]);
   const [isLoadingLinks, setIsLoadingLinks] = useState(false);
   const [copiedLinks, setCopiedLinks] = useState(new Set());
-  
+
   // UI state
   const [language, setLanguage] = useState('en');
   const [serviceStatus, setServiceStatus] = useState(null);
   const [showServiceStatusModal, setShowServiceStatusModal] = useState(false);
-  
+
   // Computed values
   const isValidUrlValue = isValidUrl(url);
   const isValidCustomCodeValue = isValidCustomCode(customCode);
@@ -196,7 +196,7 @@ function App() {
         short_url: link.short_url || link.shortUrl || undefined
       }));
 
-      const sortedLinks = normalizedLinks.sort((a, b) => 
+      const sortedLinks = normalizedLinks.sort((a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
 
@@ -261,7 +261,7 @@ function App() {
         const state = `google_auth_${generateRandomString(16)}`;
         const { verifier, challenge } = await createPkcePair();
         sessionStorage.setItem(`pkce_verifier_${state}`, verifier);
-        
+
         logger.debug('PKCE parameters:', {
           state,
           verifier: verifier.substring(0, 20) + '...',
@@ -316,25 +316,25 @@ function App() {
     }
 
     if (code && state && state.startsWith('google_auth')) {
-      logger.debug('OAuth callback detected:', { 
-        code: code.substring(0, 20) + '...', 
-        state 
+      logger.debug('OAuth callback detected:', {
+        code: code.substring(0, 20) + '...',
+        state
       });
-      
+
       const handleOAuthCallback = async () => {
         try {
           setIsLoggingIn(true);
           setError('');
-          
+
           logger.debug('=== OAUTH CALLBACK DEBUG ===');
           logger.debug('API_ENDPOINT:', API_ENDPOINT);
           logger.debug('GOOGLE_REDIRECT_URI:', GOOGLE_REDIRECT_URI);
           logger.debug('Code:', code ? code.substring(0, 20) + '...' : 'null');
           logger.debug('State:', state);
-          
+
           const pkceVerifier = sessionStorage.getItem(`pkce_verifier_${state}`);
           logger.debug('PKCE verifier:', pkceVerifier ? pkceVerifier.substring(0, 20) + '...' : 'null');
-          
+
           const requestBody = {
             googleToken: code,
             provider: 'google',
@@ -370,7 +370,7 @@ function App() {
           localStorage.setItem('chainy_user_profile', JSON.stringify(data.user));
           setUser(data.user);
           setIsAuthenticated(true);
-          
+
           sessionStorage.removeItem(`pkce_verifier_${state}`);
           window.history.replaceState({}, document.title, window.location.pathname);
 
@@ -421,19 +421,19 @@ function App() {
     setError('');
 
     try {
-        const options = createAuthenticatedRequest({
-          method: 'POST',
+      const options = createAuthenticatedRequest({
+        method: 'POST',
         body: JSON.stringify({
           target: url,
           custom_code: customCode || undefined,
         }),
-        });
+      });
 
       const response = await fetchWithServiceStatusCheck(`${API_ENDPOINT}/links`, options, language);
 
-        if (handleAuthError(response)) {
-          setIsAuthenticated(false);
-          setUser(null);
+      if (handleAuthError(response)) {
+        setIsAuthenticated(false);
+        setUser(null);
         throw new Error(t.authExpired);
       }
 
@@ -452,13 +452,13 @@ function App() {
       }
     } catch (err) {
       logger.error('Error creating short link:', err);
-      
+
       if (err.isServiceDown && err.serviceStatus) {
         setServiceStatus(err.serviceStatus);
         setShowServiceStatusModal(true);
         return;
       }
-      
+
       setError(err.message || t.unknownError);
     } finally {
       setIsLoading(false);
@@ -480,13 +480,13 @@ function App() {
   const copyLink = async (link) => {
     await copyToClipboard(link.shortUrl);
     setCopiedLinks(prev => new Set([...prev, link.id]));
-      setTimeout(() => {
-        setCopiedLinks(prev => {
-          const newSet = new Set(prev);
+    setTimeout(() => {
+      setCopiedLinks(prev => {
+        const newSet = new Set(prev);
         newSet.delete(link.id);
-          return newSet;
-        });
-      }, 2000);
+        return newSet;
+      });
+    }, 2000);
   };
 
   // Delete link
@@ -517,11 +517,11 @@ function App() {
   const handleLogout = () => {
     clearToken();
     clearUserProfile();
-              setIsAuthenticated(false);
-              setUser(null);
-              setShowLinksList(false);
-              setLinksList([]);
-              setResult(null);
+    setIsAuthenticated(false);
+    setUser(null);
+    setShowLinksList(false);
+    setLinksList([]);
+    setResult(null);
   };
 
   // Toggle links list
@@ -550,12 +550,12 @@ function App() {
   // Loading spinner component
   const LoadingSpinner = ({ size = 20, color = 'rgba(59, 130, 246, 0.8)' }) => (
     <div
-              style={{
+      style={{
         display: 'inline-block',
         width: size,
         height: size,
         border: `2px solid ${color}`,
-                borderRadius: '50%',
+        borderRadius: '50%',
         borderTopColor: 'transparent',
         animation: 'spin 1s ease-in-out infinite',
       }}
@@ -563,227 +563,285 @@ function App() {
   );
 
   return (
-    <div className="app">
-      <style>{`
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
-      
-      {/* Header */}
-      <header className="header">
-        <div className="header-content">
-          <div className="logo-section">
-            <span className="rocket">🚀</span>
-            <div className="language-selector">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white animate-gradient bg-grid-pattern bg-crypto-pattern">
+      {/* Language Selector */}
+      <div className="absolute top-4 left-4 z-50">
+        <div className="flex space-x-2">
           <button
-                className={language === 'zh' ? 'active' : ''} 
             onClick={() => setLanguage('zh')}
+            className={`px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 hover-lift ${
+              language === 'zh' 
+                ? 'bg-blue-600 text-white shadow-lg crypto-glow-blue' 
+                : 'bg-white/10 text-white/70 hover:bg-white/20 hover-glow'
+            }`}
           >
             中文
           </button>
-              <span>|</span>
           <button
-                className={language === 'en' ? 'active' : ''} 
             onClick={() => setLanguage('en')}
+            className={`px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 hover-lift ${
+              language === 'en' 
+                ? 'bg-blue-600 text-white shadow-lg crypto-glow-blue' 
+                : 'bg-white/10 text-white/70 hover:bg-white/20 hover-glow'
+            }`}
           >
             EN
           </button>
         </div>
       </div>
-          <h1 className="title">{t.title}</h1>
-          <p className="subtitle">{t.subtitle}</p>
-        </div>
-      </header>
-
-      {/* User Profile */}
-      {isAuthenticated && user && (
-        <div className="user-profile">
-          <div className="user-info">
-            <img
-              src={user.picture || 'https://via.placeholder.com/40'}
-              alt={user.name || 'User'}
-              className="user-avatar"
-            />
-            <div className="user-details">
-              <span className="user-name">{user.name || 'User'}</span>
-              <button 
-                className="logout-btn"
-                onClick={handleLogout}
-                title={t.logout}
-              >
-                {t.logout}
-              </button>
-              </div>
-          </div>
-        </div>
-      )}
 
       {/* Main Content */}
-      <main className="main-content">
-        <div className="url-shortener">
-          <h2>{t.urlShortener}</h2>
-          
-          <form onSubmit={handleSubmit} className="url-form">
-            <div className="form-group">
-              <label htmlFor="url">{t.targetUrl}</label>
-              <input
-                id="url"
-                type="url"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder={t.placeholder}
-                className={!isValidUrlValue && url ? 'invalid' : ''}
-                required
-              />
-              {!isValidUrlValue && url && (
-                <span className="error-text">{t.invalidUrl}</span>
+      <div className="container mx-auto px-4 py-8 pt-20">
+        {/* Header */}
+        <div className="text-center mb-12 animate-fade-in">
+          <h1 className="chainy-title text-6xl font-black mb-4 text-gradient animate-gradient-text animate-float">
+            CHAINY
+          </h1>
+          <p className="text-xl text-gray-300 flex items-center justify-center gap-2 animate-slide-in-up">
+            {translations[language].subtitle}
+            <span className="text-2xl animate-bounce">🚀</span>
+          </p>
+        </div>
+
+        {/* User Profile */}
+        {isAuthenticated && user && (
+          <div className="flex justify-center mb-8 animate-slide-in-up">
+            <div className="glass-effect rounded-2xl p-6 crypto-glow hover-lift">
+              <div className="flex items-center space-x-4">
+                <img
+                  src={user.picture || 'https://via.placeholder.com/60'}
+                  alt={user.name || 'User'}
+                  className="w-15 h-15 rounded-full border-2 border-blue-400 shadow-lg"
+                />
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold text-white">{user.name || 'User'}</h3>
+                  <button
+                    onClick={handleLogout}
+                    className="text-sm text-gray-300 hover:text-white transition-colors duration-200"
+                    title={t.logout}
+                  >
+                    {t.logout}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+
+        {/* URL Shortener Section */}
+        <div className="max-w-4xl mx-auto">
+          <div className="glass-effect rounded-3xl p-8 crypto-glow hover-lift animate-slide-in-up">
+            <h2 className="text-3xl font-bold text-center mb-8 text-gradient-gold">
+              {t.urlShortener}
+            </h2>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="form-group">
+                <label htmlFor="url" className="block text-sm font-medium text-gray-300 mb-2">
+                  {t.targetUrl}
+                </label>
+                <input
+                  id="url"
+                  type="url"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder={t.placeholder}
+                  className={`w-full px-4 py-3 rounded-xl bg-white/10 border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    !isValidUrlValue && url 
+                      ? 'border-red-500 bg-red-500/10' 
+                      : 'border-white/20 hover:border-white/40'
+                  }`}
+                  required
+                />
+                {!isValidUrlValue && url && (
+                  <span className="text-red-400 text-sm mt-1 block">{t.invalidUrl}</span>
+                )}
+              </div>
+
+              {isAuthenticated && (
+                <div className="form-group">
+                  <label htmlFor="customCode" className="block text-sm font-medium text-gray-300 mb-2">
+                    {t.customCode}
+                  </label>
+                  <input
+                    id="customCode"
+                    type="text"
+                    value={customCode}
+                    onChange={(e) => setCustomCode(e.target.value)}
+                    placeholder={t.customCodePlaceholder}
+                    className={`w-full px-4 py-3 rounded-xl bg-white/10 border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      !isValidCustomCodeValue && customCode 
+                        ? 'border-red-500 bg-red-500/10' 
+                        : 'border-white/20 hover:border-white/40'
+                    }`}
+                  />
+                  <p className="text-sm text-gray-400 mt-2">{t.customCodeHelp}</p>
+                  {!isValidCustomCodeValue && customCode && (
+                    <span className="text-red-400 text-sm mt-1 block">{t.invalidCustomCode}</span>
                   )}
                 </div>
+              )}
 
-            {isAuthenticated && (
-              <div className="form-group">
-                <label htmlFor="customCode">{t.customCode}</label>
-                <input
-                  id="customCode"
-                  type="text"
-                  value={customCode}
-                  onChange={(e) => setCustomCode(e.target.value)}
-                  placeholder={t.customCodePlaceholder}
-                  className={!isValidCustomCodeValue && customCode ? 'invalid' : ''}
-                />
-                <small className="help-text">{t.customCodeHelp}</small>
-                {!isValidCustomCodeValue && customCode && (
-                  <span className="error-text">{t.invalidCustomCode}</span>
+              <button
+                type="submit"
+                disabled={isLoading || !isValidUrlValue || (customCode && !isValidCustomCodeValue)}
+                className="w-full py-4 px-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover-lift crypto-glow-blue animate-crypto-pulse"
+              >
+                {isLoading ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <LoadingSpinner size={20} />
+                    <span>{t.generating}</span>
+                  </div>
+                ) : (
+                  t.generateShortUrl
+                )}
+              </button>
+            </form>
+
+            {/* Error Display */}
+            {error && (
+              <div className="mt-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+                <p className="text-red-400 text-center">{error}</p>
+                {(error.includes('Failed to fetch') || error.includes('Failed to retrieve')) && (
+                  <button
+                    onClick={() => fetchLinksList()}
+                    disabled={isLoadingLinks}
+                    className="mt-3 w-full py-2 px-4 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors duration-200"
+                  >
+                    {t.retry}
+                  </button>
                 )}
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={isLoading || !isValidUrlValue || (customCode && !isValidCustomCodeValue)}
-              className="submit-btn"
-            >
-              {isLoading ? <LoadingSpinner size={16} /> : t.generateShortUrl}
-            </button>
-          </form>
-
-          {/* Error Display */}
-            {error && (
-            <div className="error-message">
-              <p>{error}</p>
-              {(error.includes('Failed to fetch') || error.includes('Failed to retrieve')) && (
+            {/* Result Display */}
+            {result && (
+              <div className="mt-6 p-6 bg-green-500/10 border border-green-500/20 rounded-xl crypto-glow-emerald">
+                <div className="text-center">
+                  <p className="text-green-400 font-semibold mb-2">Short URL:</p>
+                  <p className="text-white font-mono text-lg break-all">{result.shortUrl}</p>
                   <button
-                    onClick={() => fetchLinksList()}
-                    disabled={isLoadingLinks}
-                  className="retry-btn"
-                >
-                  {t.retry}
-                  </button>
-              )}
-            </div>
-          )}
-
-          {/* Result Display */}
-          {result && (
-            <div className="result">
-              <div className="result-content">
-                <div className="result-info">
-                  <p className="result-label">Short URL:</p>
-                  <p className="result-url">{result.shortUrl}</p>
-                </div>
-                  <button
-                  onClick={() => copyToClipboard(result.shortUrl)}
-                  className="copy-btn"
-                  disabled={copied}
-                >
-                  {copied ? t.copied : t.copyLink}
+                    onClick={() => copyToClipboard(result.shortUrl)}
+                    className="mt-4 py-2 px-6 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors duration-200"
+                    disabled={copied}
+                  >
+                    {copied ? t.copied : t.copyLink}
                   </button>
                 </div>
               </div>
-          )}
+            )}
 
-          {/* Login Prompt */}
-          {!isAuthenticated && (
-            <div className="login-prompt">
-              <p>{t.loginPrompt}</p>
+            {/* Login Prompt */}
+            {!isAuthenticated && (
+              <div className="mt-8 text-center">
+                <p className="text-gray-300 mb-4">{t.loginPrompt}</p>
                 <button
-                onClick={handleGoogleResponse}
-                disabled={isLoggingIn}
-                className="google-login-btn"
-              >
-                {isLoggingIn ? <LoadingSpinner size={16} /> : t.signInWithGoogle}
-                </button>
-            </div>
-          )}
-
-          {/* My Short Links */}
-        {isAuthenticated && (
-            <div className="my-links-section">
-            <button
-              onClick={handleToggleLinksList}
-                className="toggle-links-btn"
-              >
-                <span>{t.myShortLinks}</span>
-                <span className="toggle-icon">
-                  {showLinksList ? '▲' : '▼'}
-                </span>
-              </button>
-              
-              {showLinksList && (
-                <div className="links-list">
-                  <h3>{t.myLinks}</h3>
-                  
-                  {isLoadingLinks ? (
-                    <div className="loading-state">
-                      <LoadingSpinner />
-                      <span>{t.loading}</span>
-                </div>
-                  ) : linksList.length === 0 ? (
-                    <p className="no-links">{t.noLinks}</p>
+                  onClick={handleGoogleResponse}
+                  disabled={isLoggingIn}
+                  className="py-3 px-6 bg-white text-gray-900 rounded-xl hover:bg-gray-100 disabled:opacity-50 transition-all duration-200 hover-lift font-semibold"
+                >
+                  {isLoggingIn ? (
+                    <div className="flex items-center space-x-2">
+                      <LoadingSpinner size={16} />
+                      <span>{t.signingIn}</span>
+                    </div>
                   ) : (
-                    <div className="links-grid">
-                      {linksList.map((link) => (
-                        <div key={link.id} className="link-item">
-                          <div className="link-content">
-                            <div className="link-info">
-                              <p className="link-title">{link.title || link.target}</p>
-                              <p className="link-url">{link.shortUrl}</p>
-                              <p className="link-target">{link.target}</p>
+                    t.signInWithGoogle
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* My Short Links */}
+        {isAuthenticated && (
+          <div className="max-w-4xl mx-auto mt-12">
+            <div className="glass-effect rounded-3xl p-8 crypto-glow hover-lift animate-slide-in-up">
+              <button
+                onClick={handleToggleLinksList}
+                className="w-full py-4 px-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all duration-200 hover-lift crypto-glow-purple"
+              >
+                <div className="flex items-center justify-center space-x-2">
+                  <span>{t.myShortLinks}</span>
+                  <span className="text-lg">
+                    {showLinksList ? '▲' : '▼'}
+                  </span>
                 </div>
-                            <div className="link-actions">
+              </button>
+
+              {showLinksList && (
+                <div className="mt-8">
+                  <h3 className="text-2xl font-bold text-center mb-6 text-gradient-gold">
+                    {t.myLinks}
+                  </h3>
+
+                  {isLoadingLinks ? (
+                    <div className="text-center py-8">
+                      <LoadingSpinner size={32} />
+                      <p className="text-gray-300 mt-4">{t.loading}</p>
+                    </div>
+                  ) : linksList.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-gray-400 text-lg">{t.noLinks}</p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4">
+                      {linksList.map((link) => (
+                        <div key={link.id} className="bg-white/5 rounded-xl p-6 border border-white/10 hover:border-white/20 transition-all duration-200 hover-lift">
+                          <div className="flex flex-col space-y-4">
+                            <div className="flex-1">
+                              <h4 className="text-white font-semibold text-lg mb-2">
+                                {link.title || link.target}
+                              </h4>
+                              <p className="text-blue-400 font-mono text-sm break-all mb-2">
+                                {link.shortUrl}
+                              </p>
+                              <p className="text-gray-400 text-sm break-all">
+                                {link.target}
+                              </p>
+                            </div>
+                            <div className="flex space-x-3">
                               <button
                                 onClick={() => copyLink(link)}
-                                className="action-btn copy"
+                                className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors duration-200"
                                 disabled={copiedLinks.has(link.id)}
                               >
                                 {copiedLinks.has(link.id) ? t.copied : t.copyLink}
-            </button>
+                              </button>
                               <button
                                 onClick={() => deleteLink(link.id)}
-                                className="action-btn delete"
+                                className="flex-1 py-2 px-4 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200"
                               >
                                 {t.deleteLink}
                               </button>
-            </div>
+                            </div>
                           </div>
                         </div>
                       ))}
-          </div>
-        )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
-        </div>
-      </main>
+          </div>
+        )}
+      </div>
 
-        {/* Footer */}
-      <footer className="footer">
-        <p>{t.poweredBy}</p>
-        <a href="https://github.com/ChuLiYu" target="_blank" rel="noopener noreferrer">
-          {t.github}
-        </a>
+      {/* Footer */}
+      <footer className="mt-16 py-8 text-center">
+        <div className="max-w-4xl mx-auto px-4">
+          <p className="text-gray-400 mb-2">{t.poweredBy}</p>
+          <a 
+            href="https://github.com/ChuLiYu" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-blue-400 hover:text-blue-300 transition-colors duration-200 font-medium"
+          >
+            {t.github}
+          </a>
+        </div>
       </footer>
 
       {/* Service Status Components */}
